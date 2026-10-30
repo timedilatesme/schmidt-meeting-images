@@ -23,5 +23,10 @@ python figure.py       # figures/lazuli_lensed_agn.{png,pdf}
   - `cube.py` morphology × spectrum per component, λ-dependent PSF, static chromatic microlensing
 - `util.py`, `lens_io.py`, `skypy_config.py` – helpers copied from TDLDMC26 `sims/`
 
+Euclid panels use SLSim's Q1-style composite (`slsim.Util.euclid_rgb_util`): VIS
+luminance, NISP Y/J/H colour, each band at its native pixel scale. The IFS cube
+includes one mild static microlensing realization of the continuum.
+`python render.py --cube-only` redoes just the cube.
+
 Lazuli specs come from Roy et al. 2026 (arXiv:2601.02556). Throughput curves,
 sky, read noise and exposure times are notional.

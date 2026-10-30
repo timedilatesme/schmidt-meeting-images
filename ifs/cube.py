@@ -13,7 +13,8 @@ own spectrum, blurred by the wavelength-dependent PSF:
   microlensing of the continuum in image k, from slsim's accretion-disc
   morphology evaluated at each wavelength on one magnification map per image.
   The broad and narrow lines come from regions far larger than the disc and
-  are left unmicrolensed.
+  are left unmicrolensed; the partial microlensing of the broad-line region
+  seen in some systems (e.g. Sluse et al. 2012) is neglected.
 
 The PSF is evaluated at a few wavelengths and the convolved component images
 interpolated between them. Spectra are smoothed to R(lambda) before sampling.
@@ -116,7 +117,9 @@ def simulate(lens, instrument, microlensing=True, microlensing_wavelengths=None,
 
     :param lens: slsim Lens with a quasar point source
     :param instrument: ``LazuliIFS``
-    :param microlensing: include static chromatic microlensing of the continuum
+    :param microlensing: include static chromatic microlensing of the continuum;
+        True draws a realization, or pass ``(nm, delta_mag)`` from
+        :func:`chromatic_microlensing` to reuse one
     :param microlensing_wavelengths: observed-frame nm at which to evaluate it
     :return: ``Cube``; x is East-left like ``util.render``
     """
@@ -139,11 +142,12 @@ def simulate(lens, instrument, microlensing=True, microlensing_wavelengths=None,
     magnification = np.abs(lens.point_source_magnification()[0])
     boost = np.ones((len(x), len(wave)))
     curve = None
-    if microlensing:
+    if microlensing is True:
         nm = (np.geomspace(400, 1700, 10) if microlensing_wavelengths is None
               else np.asarray(microlensing_wavelengths))
-        delta = chromatic_microlensing(lens, nm, seed=seed)
-        curve = (nm, delta)
+        microlensing = (nm, chromatic_microlensing(lens, nm, seed=seed))
+    if microlensing:
+        curve = nm, delta = microlensing
         for k in range(len(x)):
             boost[k] = 10 ** (-0.4 * np.interp(np.log(wave / 10), np.log(nm), delta[k]))
 

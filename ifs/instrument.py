@@ -8,8 +8,8 @@ rising to ~200 at 1.7 um; Narrow Field 2.3" x 4.6" at 40 mas, Wide Field
 noise <= 25 e-, dark <= 0.01 e-/s/pix.
 
 Notional here: the exact R(lambda) curve, the telescope reflectivity, the QE
-curve between the quoted points, the zodiacal sky spectrum, two detector
-pixels per cube voxel, and 12 e- effective read noise for up-the-ramp
+curve between the quoted points, the zodiacal sky spectrum, four detector
+pixels per cube voxel (2 spatial x 2 spectral), and 12 e- effective read noise for up-the-ramp
 sampling of a 900 s exposure (the 25 e- CDS figure is for a single pair).
 """
 
@@ -42,7 +42,7 @@ class LazuliIFS:
     num_exposures: int = 4
     read_noise: float = 12.0
     dark_current: float = 0.01
-    pixels_per_voxel: float = 2.0
+    pixels_per_voxel: float = 4.0
     wavelength_range: tuple = (4000.0, 17000.0)
 
     @property

@@ -4,6 +4,7 @@ the Lazuli IFS cube of the hero system. Results go to ``cache/render.pkl`` for
 """
 
 import pickle
+import sys
 
 import numpy as np
 from astropy.table import Table
@@ -22,13 +23,11 @@ SEED = 7
 
 RGB = {
     "LSST": ["i", "r", "g"],
-    "Euclid": ["H", "Y", "VIS"],
+    "Euclid": ["VIS", "Y", "J", "H"],  # combined Q1-style in figure.py
     "Roman": ["F158", "F129", "F106"],
     "Lazuli": ["LZz", "LZr", "LZg"],
 }
 CONFIG_KWARGS = {"Roman": {"psf_type": "PIXEL"}, "Lazuli": {"psf_type": "PIXEL"}}
-# NISP is resampled onto the VIS grid so the three planes stack
-PIXEL_SCALE = {"Euclid": 0.101}
 BANDS = [band for bands in RGB.values() for band in bands]
 
 
@@ -99,14 +98,34 @@ def select(table):
 def image(lens, observatory):
     planes = []
     for band in RGB[observatory]:
-        kwargs = util.band_kwargs(observatory, band, override_pixel_scale=PIXEL_SCALE.get(observatory),
-                                  config_kwargs=CONFIG_KWARGS.get(observatory))
+        kwargs = util.band_kwargs(observatory, band, config_kwargs=CONFIG_KWARGS.get(observatory))
         counts = util.render(lens, observatory, band, fov_arcsec=FOV,
-                             override_pixel_scale=PIXEL_SCALE.get(observatory),
                              config_kwargs=CONFIG_KWARGS.get(observatory))
         planes.append((counts, kwargs["pixel_scale"], kwargs["magnitude_zero_point"],
                        kwargs.get("seeing")))
     return planes
+
+
+def microlensing(lens, draws=4):
+    """A mild static microlensing realization of *lens*: of a few independent
+    star fields, the one with the smallest largest |Delta m|, so the figure
+    is not dominated by a rare high-magnification event."""
+    nm = np.geomspace(400, 1700, 10)
+    draws = [ifs.chromatic_microlensing(pickle.loads(pickle.dumps(lens)), nm, seed=draw)
+             for draw in range(draws)]
+    delta = min(draws, key=lambda d: np.abs(d).max())
+    print("microlensing: max |dm| %.2f mag" % np.abs(delta).max())
+    return nm, delta
+
+
+def cube_only():
+    """Redo just the hero IFS cube, keeping the cached imaging."""
+    lenses = population.load()
+    data = pickle.load(open(CACHE, "rb"))
+    hero = with_cosmos_host(lenses[data["systems"][0]["index"]])
+    data["cube"] = ifs.simulate(hero, ifs.LazuliIFS(mode="NF"),
+                                microlensing=microlensing(hero), seed=SEED)
+    pickle.dump(data, open(CACHE, "wb"))
 
 
 def main():
@@ -124,7 +143,8 @@ def main():
         ))
         print("system %d: %s" % (index, dict(systems[-1]["info"])))
     hero = systems[0]["lens"]
-    cube = ifs.simulate(hero, ifs.LazuliIFS(mode="NF"), microlensing=True, seed=SEED)
+    cube = ifs.simulate(hero, ifs.LazuliIFS(mode="NF"), microlensing=microlensing(hero),
+                        seed=SEED)
     for system in systems:
         system.pop("lens")
     pickle.dump(dict(systems=systems, cube=cube, rgb=RGB, fov=FOV,
@@ -133,4 +153,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    cube_only() if "--cube-only" in sys.argv else main()

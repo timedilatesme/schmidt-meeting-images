@@ -6,8 +6,9 @@ LSST, Euclid, Roman) **discover** lensed AGN; the Lazuli Space Observatory
 that resolves every quasar image and the lens galaxy.
 
 **Status:** the figure is final (`figures/lazuli_lensed_agn.{png,pdf}`) and the
-Keynote build layers are exported (`figures/keynote/`). Next step is building
-the animated Keynote slide on the user's Mac from those layers.
+Keynote deck is built (`figures/lazuli_lensed_agn.key`, layers stacked by
+`keynote.applescript`). Build animations are added by hand in Keynote (not
+scriptable); see the Keynote plan below.
 
 ## Pipeline
 
@@ -17,7 +18,11 @@ python render.py               # imaging for 4 observatories + hero IFS cube    
 python render.py --cube-only   # redo only the hero IFS cube, keep imaging      (~6 min)
 python figure.py               # figures/lazuli_lensed_agn.{png,pdf}
 python figure.py --keynote     # figures/keynote/build_NN_*.png + preview_NN_*.png
+osascript keynote.applescript "$PWD"   # Mac only: new figures/lazuli_lensed_agn.key from the layers
 ```
+
+Rebuilding the `.key` creates a fresh deck, so the hand-added builds must be
+redone afterwards.
 
 `cache/` is committed (so `figure.py` runs on a fresh clone); `scratch/` is
 gitignored. Rerunning `population.py`/`render.py` draws a new realization, so
@@ -84,6 +89,9 @@ Background black; place every `build_NN_*.png` full-slide at (0, 0), in order:
 7. G label + lens spectrum
 
 `preview_NN_*.png` are the cumulative frames on black, for checking.
+`keynote.applescript` does the stacking (Basic Black theme, 1920×1080, Blank
+layout). Then by hand: select layers 1–9 in order → Animate → Build In →
+Appear (or Dissolve), On Click; check Build Order lists them 1 → 9.
 
 ## Working conventions for this user
 

@@ -82,11 +82,12 @@ def catalogue(lenses):
 
 
 def select(table):
-    """Hero quad that fits the IFS narrow field, a second quad, and a double."""
+    """Hero quad (the widest that fits the IFS narrow field, so the lens light
+    is well separated from the images), a second quad, and a double."""
     bright = table[table["i_qso_2nd"] < 22.5]
     quads = bright[(bright["n_images"] == 4) & (bright["separation"] >= 1.2)]
     hero = quads[quads["separation"] <= 2.1]
-    hero.sort("i_qso_2nd")
+    hero.sort("separation", reverse=True)
     others = quads[quads["index"] != hero["index"][0]]
     others.sort("separation", reverse=True)
     doubles = bright[(bright["n_images"] == 2) & (bright["separation"] >= 1.2)
@@ -122,7 +123,9 @@ def cube_only():
     """Redo just the hero IFS cube, keeping the cached imaging."""
     lenses = population.load()
     data = pickle.load(open(CACHE, "rb"))
-    hero = with_cosmos_host(lenses[data["systems"][0]["index"]])
+    order = select(catalogue(lenses))
+    data["systems"].sort(key=lambda system: order.index(system["index"]))
+    hero = with_cosmos_host(lenses[order[0]])
     data["cube"] = ifs.simulate(hero, ifs.LazuliIFS(mode="NF"),
                                 microlensing=microlensing(hero), seed=SEED)
     pickle.dump(data, open(CACHE, "wb"))

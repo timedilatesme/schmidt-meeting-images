@@ -24,6 +24,7 @@ from matplotlib.transforms import Affine2D
 import population
 from ifs import spectra
 from observatories import lazuli
+from observatories.lazuli import airy_kernel
 
 FIGURES = Path(__file__).parent / "figures"
 WIDTH, HEIGHT = 16.0, 9.0
@@ -308,6 +309,22 @@ def rebinned(wavelength, values, resolution):
             np.array([(index == i).sum() for i in keep]))
 
 
+def aperture_correction(cube, radius=2.5, oversample=5, samples=12):
+    """Fraction of a point source's light inside the extraction aperture, vs
+    wavelength, from the same diffraction PSF the cube was built with."""
+    pixel = cube.spaxel / oversample
+    size = 41 * oversample  # 41 spaxels, centred on a spaxel
+    y, x = np.indices((41, 41))
+    inside = np.hypot(y - 20, x - 20) <= radius
+    wave = np.geomspace(cube.wavelength[0], cube.wavelength[-1], samples)
+    fraction = []
+    for lam in wave:
+        kernel = airy_kernel([lam], [1.0], pixel, size)
+        binned_kernel = kernel.reshape(41, oversample, 41, oversample).sum(axis=(1, 3))
+        fraction.append(binned_kernel[inside].sum())
+    return np.interp(np.log(cube.wavelength), np.log(wave), fraction)
+
+
 def lens_spectrum(cube, radius=10, mask=4):
     """Lens light and its variance in a 0.4" aperture, quasar images masked."""
     ny, nx = cube.flux.shape[1:]
@@ -322,8 +339,9 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
     """Observed f_lambda of each quasar image and the lens, one panel each."""
     wave = cube.wavelength
     unit = 1e-18
-    rows = [("ABCD"[k], IMAGE_COLOURS[k], cube.aperture(*cube.image_pixels[index]),
-             cube.aperture(*cube.image_pixels[index], cube=cube.sigma ** 2), 90)
+    correction = aperture_correction(cube)
+    rows = [("ABCD"[k], IMAGE_COLOURS[k], cube.aperture(*cube.image_pixels[index]) / correction,
+             cube.aperture(*cube.image_pixels[index], cube=cube.sigma ** 2) / correction ** 2, 90)
             for k, index in enumerate(image_order(cube))]
     rows.append(("G", LENS_COLOUR, *lens_spectrum(cube), 40))
     x, y, width, height = rect
@@ -353,7 +371,7 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
             spine.set_linewidth(1.1)
         if blue.sum() > 2:
             ax.axvspan(0.42, w[blue].max(), color="0.25", alpha=0.35, lw=0)
-            ax.text(0.43, 0.15, "not detected in 1 h", color="0.75", fontsize=10.5,
+            ax.text(0.43, 0.15, "not detected in 3 h", color="0.75", fontsize=10.5,
                     transform=ax.get_xaxis_transform(), va="bottom")
         ax.set_xscale("log")
         ax.set_xlim(0.42, 1.7)
@@ -389,7 +407,7 @@ def draw_ifs(fig, data, x0=9.85):
     fig.text((x0 + 2.95) / WIDTH, 8.5 / HEIGHT, "LAZULI IFS  ·  one pointing, every image",
              ha="center", va="bottom", fontsize=16, fontweight="bold", color=ACCENT)
     fig.text((x0 + 2.95) / WIDTH, 8.18 / HEIGHT,
-             "0.4–1.7 µm  ·  R ≈ 100–500  ·  40 mas spaxels  ·  1 h",
+             "0.4–1.7 µm  ·  R ≈ 100–500  ·  40 mas spaxels  ·  3 h",
              ha="center", va="bottom", fontsize=12, color=MUTED)
     target = draw_cube(fig, cube, z_s, z_d, (x0 - 0.1, 5.0, 6.1, 3.0))
     draw_spectra(fig, cube, z_s, z_d, (x0 + 0.65, 0.72, 5.0, 3.35))

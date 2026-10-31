@@ -126,7 +126,7 @@ def cube_only():
     order = select(catalogue(lenses))
     data["systems"].sort(key=lambda system: order.index(system["index"]))
     hero = with_cosmos_host(lenses[order[0]])
-    data["cube"] = ifs.simulate(hero, ifs.LazuliIFS(mode="NF"),
+    data["cube"] = ifs.simulate(hero, ifs.LazuliIFS(mode="NF", num_exposures=12),
                                 microlensing=microlensing(hero), seed=SEED)
     pickle.dump(data, open(CACHE, "wb"))
 
@@ -146,7 +146,7 @@ def main():
         ))
         print("system %d: %s" % (index, dict(systems[-1]["info"])))
     hero = systems[0]["lens"]
-    cube = ifs.simulate(hero, ifs.LazuliIFS(mode="NF"), microlensing=microlensing(hero),
+    cube = ifs.simulate(hero, ifs.LazuliIFS(mode="NF", num_exposures=12), microlensing=microlensing(hero),
                         seed=SEED)
     for system in systems:
         system.pop("lens")

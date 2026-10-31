@@ -94,8 +94,8 @@ def filter_strip(ax, bands, colours=CHANNEL):
     ax.set_xscale("log")
     ax.set_xlim(0.35, 2.15)
     ax.set_ylim(0, 1.1)
-    ax.set_xticks([0.4, 0.6, 1, 1.5, 2])
-    ax.set_xticklabels(["0.4", "0.6", "1", "1.5", "2 µm"], fontsize=8, color=MUTED)
+    ax.set_xticks([0.4, 0.6, 1, 2])
+    ax.set_xticklabels(["0.4", "0.6", "1", "2 µm"], fontsize=9, color=MUTED)
     ax.set_xticks([], minor=True)
     ax.set_yticks([])
     ax.tick_params(axis="x", length=2, pad=1.5, colors=MUTED)
@@ -105,8 +105,8 @@ def filter_strip(ax, bands, colours=CHANNEL):
 
 def coloured_bands(fig, x, y, bands, colours, suffix):
     """One centred line of text with each band name in its filter colour."""
-    muted = dict(color=MUTED, fontsize=8.5)
-    parts = [TextArea(band, textprops=dict(color=colour, fontsize=9, fontweight="bold"))
+    muted = dict(color=MUTED, fontsize=9.5)
+    parts = [TextArea(band, textprops=dict(color=colour, fontsize=10.5, fontweight="bold"))
               for band, colour in zip(bands, colours)]
     parts.append(TextArea("·  %s" % suffix, textprops=muted))
     ax = axes_at(fig, x - 0.01, y - 0.01, 0.02, 0.02)
@@ -129,10 +129,9 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
         fwhm = ([lazuli.fwhm(b) for b in bands] if observatory == "Lazuli"
                 else [p[3] for p in planes if p[3]])
         colours = EUCLID_COLOURS if observatory == "Euclid" else CHANNEL
-        pixels = sorted({p[1] for p in planes})
-        detail = "pixel %s  ·  PSF %s" % (angle(*pixels), angle(min(fwhm), max(fwhm)))
+        detail = "PSF FWHM %s" % angle(min(fwhm), max(fwhm))
         fig.text((x + panel / 2) / WIDTH, (top + 0.12) / HEIGHT, detail, ha="center",
-                 va="bottom", fontsize=9, color=MUTED)
+                 va="bottom", fontsize=10.5, color=MUTED)
         filter_strip(axes_at(fig, x + 0.1, top - 0.52, panel - 0.2, 0.34), bands, colours)
         coloured_bands(fig, x + panel / 2, top - 0.08, bands, colours, DEPTH[observatory])
 
@@ -157,20 +156,20 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                 info = system["info"]
                 kind = "Quad" if info["n_images"] == 4 else "Double"
                 ax.text(-0.17, 0.5, kind, transform=ax.transAxes, rotation=90, ha="center",
-                        va="center", fontsize=12, fontweight="bold")
+                        va="center", fontsize=14, fontweight="bold")
                 ax.text(-0.07, 0.5, r"$z_d$=%.2f  $z_s$=%.2f" % (info["z_d"], info["z_s"]),
                         transform=ax.transAxes, rotation=90, ha="center", va="center",
-                        fontsize=9, color=MUTED)
+                        fontsize=10.5, color=MUTED)
             if observatory == "Lazuli" and row == 0:
                 field = data["cube"].extent
                 ax.add_patch(Rectangle((field[1], field[2]), field[0] - field[1],
                                        field[3] - field[2], fill=False, lw=1.2, ls="--",
                                        ec=ACCENT))
                 ax.text(field[0] - 0.08, field[3] + 0.06, "IFS field", color=ACCENT,
-                        fontsize=8.5, ha="left", va="bottom", path_effects=OUTLINE)
+                        fontsize=10.5, ha="left", va="bottom", path_effects=OUTLINE)
                 hero = (x + panel * (fov / 2 - field[1]) / fov, y + panel / 2)
                 for name, colour, lx, ly in labels(data["cube"]):
-                    ax.text(lx, ly, name, color=colour, fontsize=11, fontweight="bold",
+                    ax.text(lx, ly, name, color=colour, fontsize=13, fontweight="bold",
                             ha="center", va="center", path_effects=OUTLINE)
 
     span = (columns["LSST"], columns["Roman"] + panel)
@@ -188,7 +187,7 @@ def bracket(fig, x_start, x_end, y, label, colour):
     ax.patch.set_alpha(0)
     ax.plot([x_start, x_start, x_end, x_end], [y - 0.1, y, y, y - 0.1], color=colour, lw=1.2)
     ax.text((x_start + x_end) / 2, y + 0.06, label, ha="center", va="bottom",
-            fontsize=11, fontweight="bold", color=colour)
+            fontsize=13, fontweight="bold", color=colour)
 
 
 # --------------------------------------------------------------------- IFS
@@ -282,9 +281,9 @@ def draw_cube(fig, cube, z_s, z_d, rect):
         ax.text(right + 10, mid - 3, note, color=INK, fontsize=11.5, va="top")
     low, high = corners[2][:, 1].mean(), corners[0][:, 1].mean()
     ax.add_patch(FancyArrowPatch((right, low), (right, high), arrowstyle="-|>",
-                                 mutation_scale=12, color=MUTED, lw=1.2))
-    ax.text(right, high + 2, "λ", color=MUTED, fontsize=12, ha="center", va="bottom",
-            clip_on=False)
+                                 mutation_scale=20, color="0.85", lw=2.4))
+    ax.text(right, high + 3, "λ", color="0.85", fontsize=18, fontweight="bold",
+            ha="center", va="bottom", clip_on=False)
     ax.set_xlim(-4, right + 4)
     ax.set_ylim(corners[2][:, 1].min() - 4, corners[0][:, 1].max() + 0.6 * ny)
     ax.set_aspect("equal", anchor="W")
@@ -349,59 +348,54 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
         ax.set_yticks(ticks or [float("%.1g" % np.median(good))])
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: "%g" % v))
         ax.yaxis.set_minor_locator(plt.NullLocator())
-        ax.tick_params(labelsize=7.5, length=2, pad=1.5)
+        ax.tick_params(labelsize=9.5, length=3, pad=2, width=1.1)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.1)
         if blue.sum() > 2:
             ax.axvspan(0.42, w[blue].max(), color="0.25", alpha=0.35, lw=0)
-            ax.text(0.425, 0.12, "below noise in 1 h", color="0.7", fontsize=8,
+            ax.text(0.43, 0.15, "not detected in 1 h", color="0.75", fontsize=10.5,
                     transform=ax.get_xaxis_transform(), va="bottom")
         ax.set_xscale("log")
         ax.set_xlim(0.42, 1.7)
         ax.set_xticks([0.5, 0.7, 1.0, 1.3, 1.7])
         ax.set_xticks([], minor=True)
         ax.set_xticklabels(["0.5", "0.7", "1.0", "1.3", "1.7"] if k == len(rows) - 1 else [])
-        ax.text(1.0, 0.5, "  " + name, color=colour, fontsize=12, fontweight="bold",
+        ax.text(1.0, 0.5, "  " + name, color=colour, fontsize=15, fontweight="bold",
                 va="center", transform=ax.transAxes)
         for spine in ("top", "right"):
             ax.spines[spine].set_visible(False)
         for rest in QSO_LINES.values():
             observed = rest * (1 + z_s) / 1e4
-            if 0.42 < observed < 1.7 and name != "G":
+            if 0.42 < observed < 1.6 and name != "G":
                 ax.axvline(observed, color="#bdbdbd", lw=0.6, ls=":", alpha=0.6)
         if k == 0:
-            rest_axis = ax.secondary_xaxis("top", functions=(lambda v: v / (1 + z_s),
-                                                             lambda v: v * (1 + z_s)))
-            rest_axis.set_xticks([0.12, 0.15, 0.2, 0.3, 0.4])
-            rest_axis.set_xticklabels(["0.12", "0.15", "0.2", "0.3", "0.4"], fontsize=7.5)
-            rest_axis.set_xticks([], minor=True)
-            rest_axis.tick_params(colors=MUTED, length=2, pad=1)
-            rest_axis.set_xlabel("quasar rest-frame wavelength [µm]", fontsize=8.5,
-                                 color=MUTED, labelpad=2)
             for line, rest in QSO_LINES.items():
                 observed = rest * (1 + z_s) / 1e4
-                if 0.42 < observed < 1.7:
-                    ax.text(observed * 1.008, 0.95, line, color="#d0d0d0", fontsize=8.5,
-                            ha="left", va="top", transform=ax.get_xaxis_transform())
+                if 0.42 < observed < 1.6:
+                    ax.text(observed, 1.04, line, color="#e0e0e0", fontsize=11.5,
+                            ha="center", va="bottom", transform=ax.get_xaxis_transform())
         if name == "G":
-            ax.set_xlabel("observed wavelength [µm]", fontsize=10)
-    fig.text((x - 0.42) / WIDTH, (y + height / 2) / HEIGHT,
-             "$f_\\lambda$  [10$^{-18}$ erg s$^{-1}$ cm$^{-2}$ Å$^{-1}$]",
-             rotation=90, ha="center", va="center", fontsize=9)
+            ax.set_xlabel("observed wavelength [µm]", fontsize=12.5, labelpad=3)
+            ax.tick_params(axis="x", labelsize=11)
+    fig.text((x - 0.5) / WIDTH, (y + height / 2) / HEIGHT,
+             "flux  $f_\\lambda$  [10$^{-18}$ erg s$^{-1}$ cm$^{-2}$ Å$^{-1}$]",
+             rotation=90, ha="center", va="center", fontsize=11)
 
 
 def draw_ifs(fig, data, x0=9.85):
     cube = data["cube"]
     info = data["systems"][0]["info"]
     z_s, z_d = float(info["z_s"]), float(info["z_d"])
-    fig.text((x0 + 2.95) / WIDTH, 8.52 / HEIGHT, "LAZULI IFS  ·  one pointing, every image",
-             ha="center", va="bottom", fontsize=11, fontweight="bold", color=ACCENT)
-    fig.text((x0 + 2.95) / WIDTH, 8.28 / HEIGHT,
-             "0.4–1.7 µm  ·  R ≈ 100–500  ·  40 mas spaxels  ·  4 × 900 s",
-             ha="center", va="bottom", fontsize=9, color=MUTED)
-    target = draw_cube(fig, cube, z_s, z_d, (x0 - 0.1, 4.95, 6.1, 3.15))
-    draw_spectra(fig, cube, z_s, z_d, (x0 + 0.55, 0.62, 5.15, 3.55))
-    fig.text((x0 + 3.05) / WIDTH, 4.72 / HEIGHT,
-             "Same broad lines at the same redshift in every image  →  lensed quasar confirmed",
-             ha="center", va="bottom", fontsize=9.5, color=INK)
+    fig.text((x0 + 2.95) / WIDTH, 8.5 / HEIGHT, "LAZULI IFS  ·  one pointing, every image",
+             ha="center", va="bottom", fontsize=16, fontweight="bold", color=ACCENT)
+    fig.text((x0 + 2.95) / WIDTH, 8.18 / HEIGHT,
+             "0.4–1.7 µm  ·  R ≈ 100–500  ·  40 mas spaxels  ·  1 h",
+             ha="center", va="bottom", fontsize=12, color=MUTED)
+    target = draw_cube(fig, cube, z_s, z_d, (x0 - 0.1, 5.0, 6.1, 3.0))
+    draw_spectra(fig, cube, z_s, z_d, (x0 + 0.65, 0.72, 5.0, 3.35))
+    fig.text((x0 + 3.0) / WIDTH, 4.68 / HEIGHT,
+             "Same quasar lines in every image  →  lensing confirmed",
+             ha="center", va="bottom", fontsize=12.5, fontweight="bold", color=INK)
     return target
 
 
@@ -419,11 +413,11 @@ def main(path=None, name="lazuli_lensed_agn"):
     ax.patch.set_alpha(0)
     ax.add_patch(FancyArrowPatch(hero, target - [0.08, 0], arrowstyle="-|>", mutation_scale=14,
                                  color=ACCENT, lw=1.4, connectionstyle="arc3,rad=-0.25"))
-    fig.text(0.04 / WIDTH, 0.12 / HEIGHT,
-             "Simulated with SLSim: COSMOS hosts, qsogen quasar SEDs, static microlensing. "
-             "Lazuli: 3.06 m, Strehl > 0.8 at 633 nm; specs from Roy et al. 2026 (arXiv:2601.02556). "
-             "Lazuli throughput, sky, noise and exposure times are notional. Lensed-AGN counts: Oguri & Marshall 2010.",
-             fontsize=7.5, color="0.5", ha="left", va="bottom")
+    fig.text(0.04 / WIDTH, 0.1 / HEIGHT,
+             "Simulated with SLSim. Lazuli specs: Roy et al. 2026 (arXiv:2601.02556); PSF, filters, "
+             "throughput, noise and exposure times are modelled, not official. "
+             "Lensed-AGN counts: Oguri & Marshall 2010.",
+             fontsize=9, color="0.55", ha="left", va="bottom")
     for suffix in ("png", "pdf"):
         fig.savefig(FIGURES / (name + "." + suffix), dpi=200)
     return fig

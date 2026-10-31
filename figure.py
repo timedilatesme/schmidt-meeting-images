@@ -277,9 +277,9 @@ def draw_cube(fig, cube, z_s, z_d, rect):
         ax.add_patch(Polygon(corners[depth], closed=True, fill=False, ec=colour, lw=1.4,
                              zorder=depth + 0.5))
         mid = corners[depth][1:3].mean(axis=0)[1]
-        ax.text(right + 10, mid + 3, label, color=colour, fontsize=13, fontweight="bold",
+        ax.text(right + 20, mid + 3, label, color=colour, fontsize=13, fontweight="bold",
                 va="bottom")
-        ax.text(right + 10, mid - 3, note, color=INK, fontsize=11.5, va="top")
+        ax.text(right + 20, mid - 3, note, color=INK, fontsize=11.5, va="top")
     low, high = corners[2][:, 1].mean(), corners[0][:, 1].mean()
     ax.add_patch(FancyArrowPatch((right, low), (right, high), arrowstyle="-|>",
                                  mutation_scale=20, color="0.85", lw=2.4))
@@ -351,16 +351,17 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
         ax = axes_at(fig, x, y + (len(rows) - 1 - k) * (panel + gap), width, panel)
         w, f, count = rebinned(wave, flux / unit, resolution)
         noise = np.sqrt(rebinned(wave, variance, resolution)[1] / count) / unit
-        detected = f > (2 * noise if name == "G" else 0)
+        detected = f > 2 * noise if name == "G" else np.ones(len(f), bool)
         blue = (f < 2 * noise) & (w < 1e4) & (name == "G")
         if blue.sum() > 2:  # hide the lens wherever bluer than its last non-detection
             detected &= w > w[blue].max()
         w = w / 1e4
         blue = blue & (w > 0)
-        ax.plot(w, np.where(detected, f, np.nan), color=colour, lw=1.1)
-        ax.set_yscale("log")
-        good = f[detected]
+        good = f[detected & (f > 0)]
         low, high = np.percentile(good, 2) / 1.6, good.max() * 1.6
+        # noise can push faint blue bins below zero: pin them to the axis floor
+        ax.plot(w, np.where(detected, np.clip(f, low * 1.05, None), np.nan), color=colour, lw=1.1)
+        ax.set_yscale("log")
         ax.set_ylim(low, high)
         ticks = [10.0 ** p for p in range(-2, 3) if low <= 10.0 ** p <= high]
         ax.set_yticks(ticks or [float("%.1g" % np.median(good))])
@@ -392,6 +393,9 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
                 if 0.42 < observed < 1.6:
                     ax.text(observed, 1.04, line, color="#e0e0e0", fontsize=11.5,
                             ha="center", va="bottom", transform=ax.get_xaxis_transform())
+        if k == 0:
+            ax.text(1.0, 1.04, "binned to R ≈ 90", color=MUTED, fontsize=9.5, ha="right",
+                    va="bottom", transform=ax.transAxes)
         if name == "G":
             ax.set_xlabel("observed wavelength [µm]", fontsize=12.5, labelpad=3)
             ax.tick_params(axis="x", labelsize=11)

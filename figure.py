@@ -35,8 +35,9 @@ OUTLINE = [patheffects.withStroke(linewidth=2.2, foreground="black")]
 TITLES = {"LSST": "Rubin LSST", "Euclid": "Euclid", "Roman": "Roman", "Lazuli": "Lazuli WCC"}
 DEPTH = {"LSST": "10-yr", "Euclid": "wide", "Roman": "HLWAS", "Lazuli": "4×300 s"}
 
-QSO_LINES = {"Lyα": 1216, "C IV": 1549, "C III]": 1909, "Mg II": 2798,
-             "Hβ": 4861, "[O III]": 5007, "Hα": 6563}
+# rest-frame vacuum wavelengths [A]; [O III] 5007 is blended with Hbeta at R ~ 150
+QSO_LINES = {"C IV": 1549.06, "C III]": 1908.73, "Mg II": 2798.75, "Hγ": 4340.47,
+             "Hβ": 4861.33}
 
 Q, STRETCH, WHITE_PERCENTILE, WHITE_REFERENCE = 10, 0.3, 99.5, "Roman"
 
@@ -156,7 +157,7 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                                        ec=ACCENT))
                 ax.text(field[0] - 0.08, field[3] + 0.06, "IFS field", color=ACCENT,
                         fontsize=8.5, ha="left", va="bottom", path_effects=OUTLINE)
-                hero = (x + panel, y + panel / 2)
+                hero = (x + panel * (fov / 2 - field[1]) / fov, y + panel / 2)
 
     span = (columns["LSST"], columns["Roman"] + panel)
     bracket(fig, *span, top + 0.82, "DISCOVER  ·  wide-field surveys find ~10³–10⁴ lensed AGN", INK)
@@ -217,36 +218,41 @@ def tinted(colour):
     return LinearSegmentedColormap.from_list("t", ["black", colour, "white"], N=256)
 
 
-def draw_cube(fig, cube, z_s, z_d, rect):
+def draw_cube(fig, cube, z_s, rect):
+    """Three slices stacked by observed wavelength, shortest at the bottom.
+
+    :return: figure position (inches) of the stack's left edge, for the arrow
+    """
     ax = axes_at(fig, *rect)
     ax.axis("off")
     ny, nx = cube.flux.shape[1:]
     line, line_name, line_wave = line_slice(cube, z_s)
-    slices = [
-        (stretch(cube.collapse(10000, 13500), soft=0.01), "#ff6b5a",
-         "1.00–1.35 µm continuum", "quasar images + lens + lensed host"),
-        (stretch(line), "#7ee081", "%s line, %.2f µm" % (line_name, line_wave / 1e4),
-         "quasar images only"),
-        (stretch(cube.collapse(5500, 7500), soft=0.02), "#6fa8ff",
-         "0.55–0.75 µm continuum", "quasar images dominate"),
+    rest = QSO_LINES[line_name] / 1e4
+    slices = [  # top to bottom
+        (stretch(line), "#7ee081", "%.2f µm: %s line only" % (line_wave / 1e4, line_name),
+         "rest %.3f µm × (1 + $z_s$): quasar images only" % rest),
+        (stretch(cube.collapse(10000, 12000), soft=0.01), "#ff6b5a",
+         "1.00–1.20 µm continuum", "quasar images + lens galaxy"),
+        (stretch(cube.collapse(5800, 7600), soft=0.02), "#6fa8ff",
+         "0.58–0.76 µm continuum", "quasar images dominate"),
     ]
     skew = Affine2D().scale(1, 0.55).skew_deg(35, 0)
-    dx, dy = 0.0, -0.95 * ny
+    right = skew.transform([[nx, ny]])[0][0] + 8  # lambda arrow, then labels
+    step = -0.95 * ny
+    corners = {}
     for depth, (image, colour, label, note) in enumerate(slices):
-        offset = Affine2D().translate(depth * dx, depth * dy)
-        transform = skew + offset + ax.transData
+        place = skew + Affine2D().translate(0, depth * step)
         ax.imshow(image, origin="lower", cmap=tinted(colour), vmin=0, vmax=1,
-                  extent=(0, nx, 0, ny), transform=transform, interpolation="nearest",
-                  zorder=depth)
-        corners = (skew + offset).transform([[0, 0], [nx, 0], [nx, ny], [0, ny]])
-        ax.add_patch(Polygon(corners, closed=True, fill=False, ec=colour, lw=1.2,
+                  extent=(0, nx, 0, ny), transform=place + ax.transData,
+                  interpolation="nearest", zorder=depth)
+        corners[depth] = place.transform([[0, 0], [nx, 0], [nx, ny], [0, ny]])
+        ax.add_patch(Polygon(corners[depth], closed=True, fill=False, ec=colour, lw=1.2,
                              zorder=depth + 0.5))
-        right = corners[1:3].mean(axis=0)
-        ax.text(right[0] + 12, right[1] + 4, label, color=colour, fontsize=10,
+        mid = corners[depth][1:3].mean(axis=0)[1]
+        ax.text(right + 10, mid + 4, label, color=colour, fontsize=10,
                 fontweight="bold", va="bottom")
-        ax.text(right[0] + 12, right[1] - 2, note, color=MUTED, fontsize=9, va="top")
-        if depth == len(slices) - 1:
-            front = (skew + offset)
+        ax.text(right + 10, mid - 2, note, color=MUTED, fontsize=8.5, va="top")
+        front = place
     for k, index in enumerate(image_order(cube)):
         row, col = cube.image_pixels[index]
         px, py = front.transform([[col + 0.5, row + 0.5]])[0]
@@ -255,17 +261,17 @@ def draw_cube(fig, cube, z_s, z_d, rect):
     cx, cy = front.transform([[nx / 2, ny / 2]])[0]
     ax.text(cx - 9, cy + 3, "G", color=LENS_COLOUR, fontsize=10, fontweight="bold",
             path_effects=OUTLINE, zorder=10)
-    top = skew.transform([[0, ny]])[0]
-    bottom = (skew + Affine2D().translate(2 * dx, 2 * dy)).transform([[0, 0]])[0]
-    ax.add_patch(FancyArrowPatch((bottom[0] - 10, bottom[1]), (top[0] - 10, top[1]),
+    low, high = corners[2][:, 1].mean(), corners[0][:, 1].mean()
+    ax.add_patch(FancyArrowPatch((right, low), (right, high),
                                  arrowstyle="-|>", mutation_scale=12, color=MUTED, lw=1.2))
-    ax.text(min(bottom[0], top[0]) - 16, (top[1] + bottom[1]) / 2, "λ", color=MUTED,
-            fontsize=13, ha="right", va="center")
-    ax.set_xlim(bottom[0] - 30, nx * 2.55)
-    ax.set_ylim(bottom[1] - 4, top[1] + 4)
-    ax.set_aspect("equal")
-    return line_name
-
+    ax.text(right, high + 2, "λ", color=MUTED, fontsize=12, ha="center",
+            va="bottom", clip_on=False)
+    ax.set_xlim(-4, right + 4)
+    ax.set_ylim(corners[2][:, 1].min() - 4, corners[0][:, 1].max() + 0.6 * ny)
+    ax.set_aspect("equal", anchor="W")
+    ax.apply_aspect()
+    edge = ax.transData.transform([corners[1][[0, 3]].mean(axis=0)])
+    return fig.transFigure.inverted().transform(edge)[0] * [WIDTH, HEIGHT]
 
 def binned(wavelength, values, factor):
     n = len(values) // factor * factor
@@ -283,55 +289,63 @@ def label_lines(ax, lines, redshift, colour, y, wavelength, text=True):
                         ha="right", va="top", transform=ax.get_xaxis_transform())
 
 
-def draw_spectra(fig, cube, z_s, z_d, rect):
+def draw_spectra(fig, cube, z_s, rect):
+    """Spectrum of each quasar image, normalised and offset, f_nu."""
     order = image_order(cube)
     wave = cube.wavelength
-    ny, nx = cube.flux.shape[1:]
-    unit = 1e-18
     ax = axes_at(fig, *rect)
-    peak = 0
+    window = (wave > 10000) & (wave < 12000)
+    offset = 1.1
     for k, index in enumerate(order):
         row, col = cube.image_pixels[index]
-        w, f = binned(wave, cube.aperture(row, col) / unit, 4)
-        peak = max(peak, np.percentile(f, 99))
-        ax.plot(w / 1e4, f, color=IMAGE_COLOURS[k], lw=0.9, alpha=0.95,
-                label="image %s" % "ABCD"[k])
-    lens = cube.aperture((ny - 1) / 2, (nx - 1) / 2, radius=6)
-    w, f = binned(wave, lens / unit, 12)
-    red = w > 6800  # bluer, the lens is below the noise in this exposure
-    ax.plot(w[red] / 1e4, f[red], color=LENS_COLOUR, lw=1.3, label="lens galaxy G")
+        f_nu = cube.aperture(row, col) * wave ** 2
+        f_nu /= np.median(f_nu[window])
+        w, f = binned(wave, f_nu, 4)
+        shift = (len(order) - 1 - k) * offset
+        ax.plot(w / 1e4, f + shift, color=IMAGE_COLOURS[k], lw=1.1)
+        ax.text(1.72, 1 + shift, "ABCD"[k], color=IMAGE_COLOURS[k], fontsize=11,
+                fontweight="bold", va="center", transform=ax.transData, clip_on=False)
     ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_ylim(peak / 50, peak * 6)
-    ax.set_xlim(0.4, 1.7)
-    ax.set_xticks([0.4, 0.5, 0.7, 1.0, 1.3, 1.7])
-    ax.set_xticklabels(["0.4", "0.5", "0.7", "1.0", "1.3", "1.7"])
-    ax.set_xlabel("observed wavelength [µm]", fontsize=10)
+    ax.set_xlim(0.42, 1.7)
+    ax.set_ylim(0, 1 + (len(order) - 1) * offset + 1.6)
+    ax.set_xticks([0.5, 0.7, 1.0, 1.3, 1.7])
+    ax.set_xticklabels(["0.5", "0.7", "1.0", "1.3", "1.7"])
     ax.set_xticks([], minor=True)
-    ax.set_ylabel("$f_\\lambda$  [10$^{-18}$ erg s$^{-1}$ cm$^{-2}$ Å$^{-1}$]", fontsize=9)
-    ax.tick_params(labelsize=8)
-    label_lines(ax, QSO_LINES, z_s, "#bdbdbd", 0.97, wave)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.6, 0.8), fontsize=8.5, frameon=False, ncol=5, handlelength=1.2, columnspacing=1.0, labelcolor=INK)
-    for spine in ("top", "right"):
+    ax.set_xlabel("observed wavelength [µm]", fontsize=10)
+    ax.set_yticks([])
+    ax.set_ylabel("normalised $f_\\nu$ + offset", fontsize=9.5)
+    rest_axis = ax.secondary_xaxis("top", functions=(lambda x: x / (1 + z_s),
+                                                     lambda x: x * (1 + z_s)))
+    rest_axis.set_xticks([0.15, 0.2, 0.3, 0.4, 0.5])
+    rest_axis.set_xticklabels(["0.15", "0.2", "0.3", "0.4", "0.5"], fontsize=8, color=MUTED)
+    rest_axis.set_xticks([], minor=True)
+    rest_axis.tick_params(colors=MUTED)
+    rest_axis.set_xlabel("rest-frame wavelength at $z_s$ = %.2f [µm]" % z_s, fontsize=9,
+                         color=MUTED)
+    for name, rest in QSO_LINES.items():
+        observed = rest * (1 + z_s) / 1e4
+        if 0.42 < observed < 1.7:
+            ax.axvline(observed, color="#bdbdbd", lw=0.6, ls=":", alpha=0.7)
+            ax.text(observed, 0.985, name, color="#d0d0d0", fontsize=9, rotation=90,
+                    ha="right", va="top", transform=ax.get_xaxis_transform())
+    ax.tick_params(labelsize=8.5)
+    for spine in ("right", "left"):
         ax.spines[spine].set_visible(False)
-
-
 
 def draw_ifs(fig, data, x0=9.85):
     cube = data["cube"]
-    info = data["systems"][0]["info"]
-    z_s, z_d = info["z_s"], info["z_d"]
+    z_s = float(data["systems"][0]["info"]["z_s"])
     fig.text((x0 + 2.95) / WIDTH, 8.52 / HEIGHT, "LAZULI IFS  ·  one pointing, every image",
              ha="center", va="bottom", fontsize=11, fontweight="bold", color=ACCENT)
     fig.text((x0 + 2.95) / WIDTH, 8.28 / HEIGHT,
              "0.4–1.7 µm  ·  R ≈ 100–500  ·  40 mas spaxels  ·  4 × 900 s",
              ha="center", va="bottom", fontsize=9, color=MUTED)
-    line_name = draw_cube(fig, cube, z_s, z_d, (x0 - 0.2, 4.9, 6.2, 3.2))
-    draw_spectra(fig, cube, z_s, z_d, (x0 + 0.55, 0.95, 5.35, 3.75))
-    fig.text((x0 + 3.2) / WIDTH, 4.86 / HEIGHT,
-             "Spectra of every image and the lens: source redshift and lensing confirmed in one visit",
-             ha="center", va="bottom", fontsize=9, color=INK)
-
+    target = draw_cube(fig, cube, z_s, (x0 - 0.1, 4.95, 6.1, 3.15))
+    draw_spectra(fig, cube, z_s, (x0 + 0.45, 0.75, 5.25, 3.35))
+    fig.text((x0 + 3.05) / WIDTH, 4.72 / HEIGHT,
+             "Same broad lines at the same redshift in every image  →  lensed quasar confirmed",
+             ha="center", va="bottom", fontsize=9.5, color=INK)
+    return target
 
 def main(path=None, name="lazuli_lensed_agn"):
     population.setup()
@@ -339,13 +353,13 @@ def main(path=None, name="lazuli_lensed_agn"):
     FIGURES.mkdir(exist_ok=True)
     fig = plt.figure(figsize=(WIDTH, HEIGHT))
     hero = draw_montage(fig, data)
-    draw_ifs(fig, data)
+    target = draw_ifs(fig, data)
     ax = axes_at(fig, 0, 0, WIDTH, HEIGHT)
     ax.set_xlim(0, WIDTH)
     ax.set_ylim(0, HEIGHT)
     ax.axis("off")
     ax.patch.set_alpha(0)
-    ax.add_patch(FancyArrowPatch(hero, (9.75, 6.6), arrowstyle="-|>", mutation_scale=14,
+    ax.add_patch(FancyArrowPatch(hero, target - [0.08, 0], arrowstyle="-|>", mutation_scale=14,
                                  color=ACCENT, lw=1.4, connectionstyle="arc3,rad=-0.25"))
     fig.text(0.04 / WIDTH, 0.12 / HEIGHT,
              "Simulated with SLSim: COSMOS hosts, qsogen quasar SEDs, static microlensing. "

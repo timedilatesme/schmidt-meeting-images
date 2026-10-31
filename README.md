@@ -12,7 +12,16 @@ and resolved 0.4–1.7 µm integral field spectroscopy of every lensed image.
 python population.py   # SLSim lensed-AGN population with Lazuli bands -> cache/
 python render.py       # images for all observatories + hero IFS cube -> cache/render.pkl
 python figure.py       # figures/lazuli_lensed_agn.{png,pdf}
+python figure.py --keynote   # figures/keynote/: one transparent layer per build step
 ```
+
+## Keynote
+
+`figures/keynote/build_NN_<step>.png` are full-slide (3200 × 1800) transparent
+layers holding only the elements new at that step. On a black slide, place them
+all at (0, 0) in order and give each a build-in ("Appear" or "Dissolve"); the
+stack reproduces the full figure. `preview_NN_<step>.png` show the cumulative
+slide at each step.
 
 ## Layout
 

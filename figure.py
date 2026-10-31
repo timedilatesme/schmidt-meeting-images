@@ -52,6 +52,48 @@ plt.rcParams.update({
 })
 
 
+#: Keynote build order; each step's elements are exported as their own layer.
+STEPS = ["0_base", "1_surveys", "2_lazuli", "3_ifs_field", "4a_slice_blue", "4b_slice_mid",
+         "4c_slice_red", "5_quasar_spectra", "6_caption", "7_lens"]
+
+
+class Steps:
+    """Assigns every artist drawn between two :meth:`start` calls to a build step."""
+
+    def __init__(self, fig):
+        self.fig, self.current, self.groups = fig, None, {}
+        self.seen = self._everything()
+
+    def _everything(self):
+        found = set(self.fig.axes) | set(self.fig.texts) | set(self.fig.patches)
+        for ax in self.fig.axes:
+            found |= set(ax.get_children())
+        return found
+
+    def start(self, name):
+        now = self._everything()
+        new = now - self.seen
+        new_axes = {a for a in new if isinstance(a, plt.Axes)}
+        new = {a for a in new if a in new_axes or getattr(a, "axes", None) not in new_axes}
+        if self.current is not None:
+            self.groups.setdefault(self.current, set()).update(new)
+        self.seen, self.current = now, name
+
+    def show_until(self, last):
+        self.start(self.current)
+        for name, artists in self.groups.items():
+            for artist in artists:
+                artist.set_visible(STEPS.index(name) <= STEPS.index(last))
+
+
+STEP = None
+
+
+def step(name):
+    if STEP is not None:
+        STEP.start(name)
+
+
 def axes_at(fig, x, y, w, h, **kwargs):
     return fig.add_axes([x / WIDTH, y / HEIGHT, w / WIDTH, h / HEIGHT], **kwargs)
 
@@ -123,6 +165,8 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
     for col, (observatory, bands) in enumerate(rgb.items()):
         x = x0 + col * (panel + gap)
         columns[observatory] = x
+        column_step = "2_lazuli" if observatory == "Lazuli" else "1_surveys"
+        step(column_step)
         colour = ACCENT if observatory == "Lazuli" else INK
         planes = systems[0]["images"][observatory]
         fig.text((x + panel / 2) / WIDTH, (top + 0.34) / HEIGHT, TITLES[observatory],
@@ -162,6 +206,7 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                         transform=ax.transAxes, rotation=90, ha="center", va="center",
                         fontsize=10.5, color=MUTED)
             if observatory == "Lazuli" and row == 0:
+                step("3_ifs_field")
                 field = data["cube"].extent
                 ax.add_patch(Rectangle((field[1], field[2]), field[0] - field[1],
                                        field[3] - field[2], fill=False, lw=1.2, ls="--",
@@ -170,11 +215,15 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                         fontsize=10.5, ha="left", va="bottom", path_effects=OUTLINE)
                 hero = (x + panel * (fov / 2 - field[1]) / fov, y + panel / 2)
                 for name, colour, lx, ly in labels(data["cube"]):
+                    step("7_lens" if name == "G" else "5_quasar_spectra")
                     ax.text(lx, ly, name, color=colour, fontsize=13, fontweight="bold",
                             ha="center", va="center", path_effects=OUTLINE)
+                step(column_step)
 
     span = (columns["LSST"], columns["Roman"] + panel)
+    step("1_surveys")
     bracket(fig, *span, top + 0.82, r"DISCOVER  ·  wide-field surveys find $\mathcal{O}(1000)$ lensed AGN", INK)
+    step("2_lazuli")
     bracket(fig, columns["Lazuli"], columns["Lazuli"] + panel, top + 0.82,
             "CHARACTERIZE", ACCENT)
     return hero
@@ -251,6 +300,7 @@ def draw_cube(fig, cube, z_s, z_d, rect):
 
     :return: figure position (inches) of the stack's left edge, for the arrow
     """
+    step("4a_slice_blue")
     ax = axes_at(fig, *rect)
     ax.axis("off")
     ny, nx = cube.flux.shape[1:]
@@ -266,10 +316,11 @@ def draw_cube(fig, cube, z_s, z_d, rect):
     slices = slices[::-1]  # top of the stack is the reddest
     skew = Affine2D().scale(1, 0.55).skew_deg(35, 0)
     right = skew.transform([[nx, ny]])[0][0] + 8  # lambda arrow, then labels
-    step = -0.95 * ny
+    spacing = -0.95 * ny
     corners = {}
     for depth, (image, colour, label, note) in enumerate(slices):
-        place = skew + Affine2D().translate(0, depth * step)
+        step(["4c_slice_red", "4b_slice_mid", "4a_slice_blue"][depth])
+        place = skew + Affine2D().translate(0, depth * spacing)
         ax.imshow(image, origin="lower", cmap=tinted(colour), vmin=0, vmax=1,
                   extent=(0, nx, 0, ny), transform=place + ax.transData,
                   interpolation="nearest", zorder=depth)
@@ -280,6 +331,7 @@ def draw_cube(fig, cube, z_s, z_d, rect):
         ax.text(right + 20, mid + 3, label, color=colour, fontsize=13, fontweight="bold",
                 va="bottom")
         ax.text(right + 20, mid - 3, note, color=INK, fontsize=11.5, va="top")
+    step("4a_slice_blue")
     low, high = corners[2][:, 1].mean(), corners[0][:, 1].mean()
     ax.add_patch(FancyArrowPatch((right, low), (right, high), arrowstyle="-|>",
                                  mutation_scale=20, color="0.85", lw=2.4))
@@ -344,11 +396,13 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
              cube.aperture(*cube.image_pixels[index], cube=cube.sigma ** 2) / correction ** 2, 90)
             for k, index in enumerate(image_order(cube))]
     rows.append(("G", LENS_COLOUR, *lens_spectrum(cube), 40))
+    step("5_quasar_spectra")
     x, y, width, height = rect
     gap = 0.06
     panel = (height - gap * (len(rows) - 1)) / len(rows)
     for k, (name, colour, flux, variance, resolution) in enumerate(rows):
         ax = axes_at(fig, x, y + (len(rows) - 1 - k) * (panel + gap), width, panel)
+        step("7_lens" if name == "G" else "5_quasar_spectra")
         w, f, count = rebinned(wave, flux / unit, resolution)
         noise = np.sqrt(rebinned(wave, variance, resolution)[1] / count) / unit
         detected = f > 2 * noise if name == "G" else np.ones(len(f), bool)
@@ -381,6 +435,7 @@ def draw_spectra(fig, cube, z_s, z_d, rect):
         ax.set_xticklabels(["0.5", "0.7", "1.0", "1.3", "1.7"] if k == len(rows) - 1 else [])
         ax.text(1.0, 0.5, "  " + name, color=colour, fontsize=15, fontweight="bold",
                 va="center", transform=ax.transAxes)
+        step("5_quasar_spectra")
         for spine in ("top", "right"):
             ax.spines[spine].set_visible(False)
         for rest in QSO_LINES.values():
@@ -408,6 +463,7 @@ def draw_ifs(fig, data, x0=9.85):
     cube = data["cube"]
     info = data["systems"][0]["info"]
     z_s, z_d = float(info["z_s"]), float(info["z_d"])
+    step("3_ifs_field")
     fig.text((x0 + 2.95) / WIDTH, 8.5 / HEIGHT, "LAZULI IFS  ·  one pointing, every image",
              ha="center", va="bottom", fontsize=16, fontweight="bold", color=ACCENT)
     fig.text((x0 + 2.95) / WIDTH, 8.18 / HEIGHT,
@@ -415,19 +471,28 @@ def draw_ifs(fig, data, x0=9.85):
              ha="center", va="bottom", fontsize=12, color=MUTED)
     target = draw_cube(fig, cube, z_s, z_d, (x0 - 0.1, 5.0, 6.1, 3.0))
     draw_spectra(fig, cube, z_s, z_d, (x0 + 0.65, 0.72, 5.0, 3.35))
+    step("6_caption")
     fig.text((x0 + 3.0) / WIDTH, 4.68 / HEIGHT,
              "Same quasar lines in every image  →  lensing confirmed",
              ha="center", va="bottom", fontsize=12.5, fontweight="bold", color=INK)
     return target
 
 
-def main(path=None, name="lazuli_lensed_agn"):
+def build(path=None):
+    global STEP
     population.setup()
     data = pickle.load(open(path or population.CACHE.parent / "render.pkl", "rb"))
-    FIGURES.mkdir(exist_ok=True)
     fig = plt.figure(figsize=(WIDTH, HEIGHT))
+    STEP = Steps(fig)
+    step("0_base")
+    fig.text(0.04 / WIDTH, 0.1 / HEIGHT,
+             "Simulated with SLSim. Lazuli specs: Roy et al. 2026 (arXiv:2601.02556); PSF, filters, "
+             "throughput, noise and exposure times are modelled, not official. "
+             "Lensed-AGN counts: Oguri & Marshall 2010.",
+             fontsize=9, color="0.55", ha="left", va="bottom")
     hero = draw_montage(fig, data)
     target = draw_ifs(fig, data)
+    step("3_ifs_field")
     ax = axes_at(fig, 0, 0, WIDTH, HEIGHT)
     ax.set_xlim(0, WIDTH)
     ax.set_ylim(0, HEIGHT)
@@ -435,15 +500,43 @@ def main(path=None, name="lazuli_lensed_agn"):
     ax.patch.set_alpha(0)
     ax.add_patch(FancyArrowPatch(hero, target - [0.08, 0], arrowstyle="-|>", mutation_scale=14,
                                  color=ACCENT, lw=1.4, connectionstyle="arc3,rad=-0.25"))
-    fig.text(0.04 / WIDTH, 0.1 / HEIGHT,
-             "Simulated with SLSim. Lazuli specs: Roy et al. 2026 (arXiv:2601.02556); PSF, filters, "
-             "throughput, noise and exposure times are modelled, not official. "
-             "Lensed-AGN counts: Oguri & Marshall 2010.",
-             fontsize=9, color="0.55", ha="left", va="bottom")
+    step(None)
+    return fig
+
+
+def main(path=None, name="lazuli_lensed_agn"):
+    FIGURES.mkdir(exist_ok=True)
+    fig = build(path)
     for suffix in ("png", "pdf"):
         fig.savefig(FIGURES / (name + "." + suffix), dpi=200)
     return fig
 
 
+def keynote(path=None, dpi=200):
+    """One transparent full-slide PNG per build step, holding only that step's
+    new pixels, so the layers stack exactly in Keynote; plus cumulative
+    previews on black."""
+    out = FIGURES / "keynote"
+    out.mkdir(parents=True, exist_ok=True)
+    fig = build(path)
+    previous = None
+    for number, name in enumerate(STEPS):
+        STEP.show_until(name)
+        fig.savefig(out / ("preview_%02d_%s.png" % (number, name)), dpi=dpi)
+        buffer = out / "_cumulative.png"
+        fig.savefig(buffer, dpi=dpi, transparent=True)
+        current = plt.imread(buffer)
+        layer = current.copy()
+        if previous is not None:
+            layer[np.all(np.isclose(current, previous, atol=1 / 512), axis=-1)] = 0
+        plt.imsave(out / ("build_%02d_%s.png" % (number, name)), layer)
+        previous = current
+    buffer.unlink()
+    STEP.show_until(STEPS[-1])
+
+
 if __name__ == "__main__":
-    main(None, *sys.argv[1:])
+    if "--keynote" in sys.argv:
+        keynote()
+    else:
+        main(None, *[a for a in sys.argv[1:] if not a.startswith("--")])

@@ -1,0 +1,92 @@
+# Lazuli lensed-AGN slide
+
+One 16:9 slide figure for a Schmidt Sciences talk: wide-field surveys (Rubin
+LSST, Euclid, Roman) **discover** lensed AGN; the Lazuli Space Observatory
+**characterizes** them — diffraction-limited WCC imaging plus one IFS pointing
+that resolves every quasar image and the lens galaxy.
+
+**Status:** the figure is final (`figures/lazuli_lensed_agn.{png,pdf}`) and the
+Keynote build layers are exported (`figures/keynote/`). Next step is building
+the animated Keynote slide on the user's Mac from those layers.
+
+## Pipeline
+
+```bash
+python population.py           # SLSim lensed-AGN population incl. Lazuli bands -> cache/population.pkl (~10 min)
+python render.py               # imaging for 4 observatories + hero IFS cube    -> cache/render.pkl (~20 min, CPU)
+python render.py --cube-only   # redo only the hero IFS cube, keep imaging      (~6 min)
+python figure.py               # figures/lazuli_lensed_agn.{png,pdf}
+python figure.py --keynote     # figures/keynote/build_NN_*.png + preview_NN_*.png
+```
+
+`cache/` and `scratch/` are gitignored, so a fresh clone must rerun
+`population.py` and `render.py` before `figure.py`. They need SLSim (the user's
+editable install, `~/repos/self/slsim`) and the COSMOS catalog path hard-coded
+in `render.py` (NERSC). On a laptop, copy `cache/render.pkl` over instead.
+
+## Files
+
+- `observatories/lazuli.py` – Lazuli WCC config for SLSim: 17 mas pixels,
+  SDSS-shaped filters `LZg/LZr/LZi/LZz` at 0.5 peak throughput, polychromatic
+  Airy PSF (3.06 m unobscured) + 4 mas jitter.
+- `ifs/` – IFS cube simulator using only SLSim's public API (no SLSim changes):
+  `instrument.py` (R(λ), 40 mas NF spaxels, throughput, zodi, H4RG noise),
+  `spectra.py` (qsogen quasar split into continuum + lines; kcorrect-template
+  fits for lens and host), `cube.py` (morphology × spectrum per component,
+  λ-dependent PSF, static chromatic microlensing of the continuum only).
+- `render.py` – system selection (hero = widest quad that fits the IFS narrow
+  field), COSMOS-host swap, imaging, cube.
+- `figure.py` – layout. Every artist is assigned to a Keynote build step via
+  `step("...")`; `STEPS` lists the order. New elements must be drawn after the
+  right `step()` call or they land in the wrong layer.
+
+## Decisions already made with the user (don't relitigate)
+
+- Layout: 4-column montage (LSST, Euclid, Roman, Lazuli WCC) × 3 systems on the
+  left; Lazuli IFS on the right. Hero (top row) quad: z_d = 0.89, z_s = 2.74.
+- Euclid uses SLSim's Q1-style RGB (`slsim.Util.euclid_rgb_util`, VIS luminance
+  + NISP Y/J/H colour, native pixel scales), arcsinh stretch, scale 200.
+- IFS slices: three plain continuum slices (0.60–0.70, 0.85–1.00,
+  1.20–1.50 µm) avoiding quasar lines, coloured blue → grey → red, bluest at
+  the bottom. No continuum-subtracted line slice. A–D/G labels live on the WCC
+  image, not on the slices.
+- Spectra: true observed f_λ, log axis, one panel per image + lens, binned to
+  R ≈ 90, PSF aperture-corrected (quasars only). IFS exposure 3 h (12 × 900 s).
+  Lens shown only where detected (> 2σ); bluer is shaded "not detected in 3 h".
+- Microlensing stays on in the simulation but is not featured on this slide.
+- Header says 𝒪(1000) lensed AGN (Oguri & Marshall 2010).
+
+## Accuracy notes
+
+- Lazuli numbers come from Roy et al. 2026 (arXiv:2601.02556). Not published,
+  so modelled here: PSF, WCC filter curves, R(λ) shape between quoted points,
+  throughput/QE curves, zodi spectrum, 12 e⁻ up-the-ramp read noise, 4 detector
+  pixels per voxel, exposure times. The footer says so.
+- R ≤ 500 cannot measure the lens velocity dispersion; in 3 h the lens redshift
+  is not measured either — don't claim it.
+- SLSim microlensing magnification maps are not reproducible from a seed, so
+  `--cube-only` redraws a slightly different (mild) realization each run.
+
+## Keynote plan (agreed build order)
+
+Background black; place every `build_NN_*.png` full-slide at (0, 0), in order:
+
+0. base (footer) — on slide from the start
+1. LSST/Euclid/Roman columns + DISCOVER bracket
+2. Lazuli WCC column + CHARACTERIZE bracket
+3. IFS field box, "LAZULI IFS" title, orange arrow
+4. slices one at a time, bottom → top (4a blue + λ arrow, 4b, 4c)
+5. A–D labels on the WCC image + A–D spectra
+6. caption "Same quasar lines in every image → lensing confirmed"
+7. G label + lens spectrum
+
+`preview_NN_*.png` are the cumulative frames on black, for checking.
+
+## Working conventions for this user
+
+- Never recursively traverse shared filesystems (`/global`, `/pscratch`, …);
+  stay inside this directory. The session scratchpad may be unwritable — use
+  `scratch/` (gitignored) for throwaway scripts.
+- Verify every number that appears on the slide against the code/model before
+  reporting; the user checks them.
+- Keep slide text large and the message simple; explain physics in notes.

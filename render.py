@@ -3,6 +3,7 @@ the Lazuli IFS cube of the hero system. Results go to ``cache/render.pkl`` for
 ``figure.py``.
 """
 
+import os
 import pickle
 import sys
 
@@ -17,7 +18,13 @@ import population
 import util
 
 CACHE = population.CACHE.parent / "render.pkl"
-COSMOS_PATH = "/pscratch/sd/s/sharma/data/catalogs/COSMOS_23.5_training_sample"
+# HST COSMOS 23.5 training sample (https://zenodo.org/records/3242143): NERSC, then Mac
+COSMOS_PATH = next(
+    (path for path in ("/pscratch/sd/s/sharma/data/catalogs/COSMOS_23.5_training_sample",
+                       "/Users/paras/Projects/datasets/COSMOS/COSMOS_23.5_training_sample")
+     if os.path.isdir(path)),
+    None,
+)
 FOV = 5.0
 SEED = 7
 

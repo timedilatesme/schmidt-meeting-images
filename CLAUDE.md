@@ -19,10 +19,13 @@ python figure.py               # figures/lazuli_lensed_agn.{png,pdf}
 python figure.py --keynote     # figures/keynote/build_NN_*.png + preview_NN_*.png
 ```
 
-`cache/` and `scratch/` are gitignored, so a fresh clone must rerun
-`population.py` and `render.py` before `figure.py`. They need SLSim (the user's
-editable install, `~/repos/self/slsim`) and the COSMOS catalog path hard-coded
-in `render.py` (NERSC). On a laptop, copy `cache/render.pkl` over instead.
+`cache/` is committed (so `figure.py` runs on a fresh clone); `scratch/` is
+gitignored. Rerunning `population.py`/`render.py` draws a new realization, so
+the hero system changes. They need SLSim (the user's editable install) and the
+HST COSMOS 23.5 catalog (zenodo.org/records/3242143); `render.py` picks the
+NERSC path or `/Users/paras/Projects/datasets/COSMOS/` on the Mac, whichever
+exists. On the Mac use `~/miniconda3/bin/python` (not `/opt/miniconda3`, whose
+lenstronomy is too old).
 
 ## Files
 

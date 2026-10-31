@@ -12,9 +12,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import speclite.filters
+from scipy.ndimage import gaussian_filter
 from astropy.visualization import make_lupton_rgb
 from slsim.Util.euclid_rgb_util import euclid_rgb_from_image_list
 from matplotlib import patheffects
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 from matplotlib.patches import FancyArrowPatch, Polygon, Rectangle
 from matplotlib.transforms import Affine2D
@@ -221,31 +223,6 @@ def near_line(wave, z_s, width=0.025):
                   axis=0)
 
 
-def line_slice(cube, z_s):
-    """Continuum-subtracted cube slice on the broad line detected best."""
-    def subtracted(observed, cube_):
-        width = observed * 0.012
-        offset = np.abs(cube.wavelength - observed)
-        on, side = offset < width, (offset > 2.5 * width) & (offset < 5 * width)
-        return cube_[on].mean(axis=0) - np.median(cube_[side], axis=0), on
-
-    best = None
-    for label, rest in QSO_LINES.items():
-        observed = rest * (1 + z_s)
-        if not cube.wavelength[10] < observed < cube.wavelength[-10]:
-            continue
-        signal, on = subtracted(observed, cube.model)
-        row, col = cube.image_pixels[image_order(cube)[0]]
-        y, x = np.indices(signal.shape)
-        aperture = np.hypot(y - row, x - col) <= 2.5
-        noise = np.sqrt((cube.sigma[on][:, aperture] ** 2).sum()) / on.sum()
-        score = signal[aperture].sum() / noise
-        if best is None or score > best[0]:
-            best = (score, label, observed)
-    _, name, observed = best
-    return subtracted(observed, cube.flux)[0], name, observed
-
-
 def continuum_slice(cube, z_s, low, high):
     """Mean over [low, high] Angstrom, skipping channels near quasar lines."""
     use = (cube.wavelength >= low) & (cube.wavelength <= high) & ~near_line(cube.wavelength, z_s)
@@ -257,50 +234,52 @@ def stretch(image, percent=99.8, soft=0.08):
     return np.arcsinh(np.clip(image, 0, None) / (soft * scale)) / np.arcsinh(1 / soft)
 
 
-def draw_cube(fig, cube, z_s, z_d, rect):
-    """Three slices stacked by observed wavelength, shortest at the bottom.
+# blue -> neutral -> red, hues not used elsewhere on the slide
+SLICE_COLOURS = ["#4361ee", "#e0e0e0", "#d62828"]
 
-    Continuum windows are set by the lens redshift: one blueward of the lens's
-    4000 A break, where its old stars are faint, and one at rest 0.6-0.85 um,
-    where they are brightest.
+
+def tinted(colour):
+    return LinearSegmentedColormap.from_list("tint", ["black", colour, "white"], N=256)
+
+
+def draw_cube(fig, cube, z_s, z_d, rect):
+    """Three plain continuum slices stacked by wavelength, bluest at the bottom.
+
+    Windows avoid the quasar's lines, so each slice is just the light at that
+    wavelength: the blue quasar images dominate short of the lens's 4000 A
+    break, and the lens's old stars take over towards the red.
 
     :return: figure position (inches) of the stack's left edge, for the arrow
     """
     ax = axes_at(fig, *rect)
     ax.axis("off")
     ny, nx = cube.flux.shape[1:]
-    line, line_name, line_wave = line_slice(cube, z_s)
-    blue = (max(0.30 * (1 + z_d), 0.42), 0.38 * (1 + z_d))
-    red = (0.60 * (1 + z_d), min(0.85 * (1 + z_d), 1.65))
-    slices = sorted([
-        (line_wave / 1e4, stretch(line),
-         "%.2f µm: %s line (rest %.3f µm)" % (line_wave / 1e4, line_name,
-                                              QSO_LINES[line_name] / 1e4),
-         "continuum removed: quasar broad lines only"),
-        (np.mean(blue), stretch(continuum_slice(cube, z_s, *np.multiply(blue, 1e4)), soft=0.02),
-         "%.2f–%.2f µm continuum" % blue,
-         "lens rest %.2f–%.2f µm (old stars faint): quasars dominate"
-         % (blue[0] / (1 + z_d), blue[1] / (1 + z_d))),
-        (np.mean(red), stretch(continuum_slice(cube, z_s, *np.multiply(red, 1e4)), soft=0.01),
-         "%.2f–%.2f µm continuum" % red,
-         "lens rest %.2f–%.2f µm (old stars bright): lens G shows"
-         % (red[0] / (1 + z_d), red[1] / (1 + z_d))),
-    ], key=lambda item: -item[0])  # top of the stack is the longest wavelength
+    windows = [((0.60, 0.70), "quasar images"),
+               ((0.85, 1.00), "lens galaxy appears"),
+               ((1.20, 1.50), "lens galaxy: red starlight")]
+    slices = []
+    for ((low, high), note), colour in zip(windows, SLICE_COLOURS):
+        image = gaussian_filter(continuum_slice(cube, z_s, low * 1e4, high * 1e4), 0.7)
+        edge = np.concatenate([image[:6].ravel(), image[-6:].ravel()])
+        image = image - 1.5 * 1.4826 * np.median(np.abs(edge - np.median(edge)))
+        slices.append((stretch(image, soft=0.03), colour, "%.2f–%.2f µm" % (low, high), note))
+    slices = slices[::-1]  # top of the stack is the reddest
     skew = Affine2D().scale(1, 0.55).skew_deg(35, 0)
     right = skew.transform([[nx, ny]])[0][0] + 8  # lambda arrow, then labels
     step = -0.95 * ny
     corners = {}
-    for depth, (_, image, label, note) in enumerate(slices):
+    for depth, (image, colour, label, note) in enumerate(slices):
         place = skew + Affine2D().translate(0, depth * step)
-        ax.imshow(image, origin="lower", cmap="magma", vmin=0, vmax=1, extent=(0, nx, 0, ny),
-                  transform=place + ax.transData, interpolation="nearest", zorder=depth)
+        ax.imshow(image, origin="lower", cmap=tinted(colour), vmin=0, vmax=1,
+                  extent=(0, nx, 0, ny), transform=place + ax.transData,
+                  interpolation="nearest", zorder=depth)
         corners[depth] = place.transform([[0, 0], [nx, 0], [nx, ny], [0, ny]])
-        ax.add_patch(Polygon(corners[depth], closed=True, fill=False, ec="0.7", lw=1.0,
+        ax.add_patch(Polygon(corners[depth], closed=True, fill=False, ec=colour, lw=1.4,
                              zorder=depth + 0.5))
         mid = corners[depth][1:3].mean(axis=0)[1]
-        ax.text(right + 10, mid + 4, label, color=INK, fontsize=10, fontweight="bold",
+        ax.text(right + 10, mid + 3, label, color=colour, fontsize=13, fontweight="bold",
                 va="bottom")
-        ax.text(right + 10, mid - 2, note, color=MUTED, fontsize=8, va="top")
+        ax.text(right + 10, mid - 3, note, color=INK, fontsize=11.5, va="top")
     low, high = corners[2][:, 1].mean(), corners[0][:, 1].mean()
     ax.add_patch(FancyArrowPatch((right, low), (right, high), arrowstyle="-|>",
                                  mutation_scale=12, color=MUTED, lw=1.2))

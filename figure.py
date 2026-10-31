@@ -486,9 +486,9 @@ def build(path=None):
     STEP = Steps(fig)
     step("0_base")
     fig.text(0.04 / WIDTH, 0.1 / HEIGHT,
-             "Simulated with SLSim. Lazuli specs: Roy et al. 2026 (arXiv:2601.02556); PSF, filters, "
-             "throughput, noise and exposure times are modelled, not official. "
-             "Lensed-AGN counts: Oguri & Marshall 2010.",
+             "Simulated with SLSim; quasar hosts from HST COSMOS. Lensed-AGN counts: Oguri & Marshall 2010.\n"
+             "Lazuli: Roy et al. 2026 (arXiv:2601.02556). Modelled, not official: diffraction-limited "
+             "3.06 m Airy PSF + 4 mas jitter, SDSS-shaped filters, throughput, noise, exposure times.",
              fontsize=9, color="0.55", ha="left", va="bottom")
     hero = draw_montage(fig, data)
     target = draw_ifs(fig, data)

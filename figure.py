@@ -178,7 +178,10 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
         fig.text((x + panel / 2) / WIDTH, (top + 0.12) / HEIGHT, detail, ha="center",
                  va="bottom", fontsize=10.5, color=MUTED)
         filter_strip(axes_at(fig, x + 0.1, top - 0.52, panel - 0.2, 0.34), bands, colours)
-        coloured_bands(fig, x + panel / 2, top - 0.08, bands, colours, DEPTH[observatory])
+        # labels run blue -> red like the curves; RGB lists are red-first except Euclid's
+        order = slice(None) if observatory == "Euclid" else slice(None, None, -1)
+        coloured_bands(fig, x + panel / 2, top - 0.08, bands[order], colours[order],
+                       DEPTH[observatory])
 
         for row, system in enumerate(systems):
             y = top - 0.8 - (row + 1) * panel - row * gap

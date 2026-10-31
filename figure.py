@@ -16,6 +16,7 @@ from astropy.visualization import make_lupton_rgb
 from slsim.Util.euclid_rgb_util import euclid_rgb_from_image_list
 from matplotlib import patheffects
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 from matplotlib.patches import FancyArrowPatch, Polygon, Rectangle
 from matplotlib.transforms import Affine2D
 
@@ -90,15 +91,28 @@ def filter_strip(ax, bands, colours=CHANNEL):
         ax.fill_between(curve.wavelength / 1e4, response, color=colour, alpha=0.35, lw=0)
         ax.plot(curve.wavelength / 1e4, response, color=colour, lw=1)
     ax.set_xscale("log")
-    ax.set_xlim(0.35, 2.0)
+    ax.set_xlim(0.35, 2.15)
     ax.set_ylim(0, 1.1)
-    ax.set_xticks([0.4, 0.6, 1, 1.5])
-    ax.set_xticklabels(["0.4", "0.6", "1", "1.5 µm"], fontsize=8, color=MUTED)
+    ax.set_xticks([0.4, 0.6, 1, 1.5, 2])
+    ax.set_xticklabels(["0.4", "0.6", "1", "1.5", "2 µm"], fontsize=8, color=MUTED)
     ax.set_xticks([], minor=True)
     ax.set_yticks([])
     ax.tick_params(axis="x", length=2, pad=1.5, colors=MUTED)
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
+
+
+def coloured_bands(fig, x, y, bands, colours, suffix):
+    """One centred line of text with each band name in its filter colour."""
+    muted = dict(color=MUTED, fontsize=8.5)
+    parts = [TextArea(band, textprops=dict(color=colour, fontsize=9, fontweight="bold"))
+              for band, colour in zip(bands, colours)]
+    parts.append(TextArea("·  %s" % suffix, textprops=muted))
+    ax = axes_at(fig, x - 0.01, y - 0.01, 0.02, 0.02)
+    ax.axis("off")
+    ax.add_artist(AnchoredOffsetbox(loc="center", child=HPacker(children=parts, sep=4, pad=0),
+                                    frameon=False, bbox_to_anchor=(0.5, 0.5),
+                                    bbox_transform=ax.transAxes, borderpad=0))
 
 
 def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
@@ -119,11 +133,7 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
         fig.text((x + panel / 2) / WIDTH, (top + 0.12) / HEIGHT, detail, ha="center",
                  va="bottom", fontsize=9, color=MUTED)
         filter_strip(axes_at(fig, x + 0.1, top - 0.52, panel - 0.2, 0.34), bands, colours)
-        composite = ("Q1 style: VIS + Y J H" if observatory == "Euclid"
-                     else "RGB = %s" % " ".join(bands))
-        fig.text((x + panel / 2) / WIDTH, (top - 0.08) / HEIGHT,
-                 "%s  ·  %s" % (composite, DEPTH[observatory]),
-                 ha="center", va="center", fontsize=8.5, color=MUTED)
+        coloured_bands(fig, x + panel / 2, top - 0.08, bands, colours, DEPTH[observatory])
 
         for row, system in enumerate(systems):
             y = top - 0.8 - (row + 1) * panel - row * gap
@@ -160,7 +170,7 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                 hero = (x + panel * (fov / 2 - field[1]) / fov, y + panel / 2)
 
     span = (columns["LSST"], columns["Roman"] + panel)
-    bracket(fig, *span, top + 0.82, "DISCOVER  ·  wide-field surveys find ~10³–10⁴ lensed AGN", INK)
+    bracket(fig, *span, top + 0.82, "DISCOVER  ·  wide-field surveys find O(1000) lensed AGN", INK)
     bracket(fig, columns["Lazuli"], columns["Lazuli"] + panel, top + 0.82,
             "CHARACTERIZE", ACCENT)
     return hero
@@ -229,12 +239,15 @@ def draw_cube(fig, cube, z_s, rect):
     line, line_name, line_wave = line_slice(cube, z_s)
     rest = QSO_LINES[line_name] / 1e4
     slices = [  # top to bottom
-        (stretch(line), "#7ee081", "%.2f µm: %s line only" % (line_wave / 1e4, line_name),
-         "rest %.3f µm × (1 + $z_s$): quasar images only" % rest),
+        (stretch(line), "#7ee081",
+         "%.2f µm: %s line (rest %.3f µm)" % (line_wave / 1e4, line_name, rest),
+         "continuum removed: only quasar broad-line gas emits"),
         (stretch(cube.collapse(10000, 12000), soft=0.01), "#ff6b5a",
-         "1.00–1.20 µm continuum", "quasar images + lens galaxy"),
+         "1.00–1.20 µm continuum",
+         "red starlight of lens G rivals the quasar images"),
         (stretch(cube.collapse(5800, 7600), soft=0.02), "#6fa8ff",
-         "0.58–0.76 µm continuum", "quasar images dominate"),
+         "0.58–0.76 µm continuum",
+         "lens starlight fades to the blue; quasars dominate"),
     ]
     skew = Affine2D().scale(1, 0.55).skew_deg(35, 0)
     right = skew.transform([[nx, ny]])[0][0] + 8  # lambda arrow, then labels
@@ -255,11 +268,13 @@ def draw_cube(fig, cube, z_s, rect):
         front = place
     for k, index in enumerate(image_order(cube)):
         row, col = cube.image_pixels[index]
+        outward = np.array([col - nx / 2, row - ny / 2])
+        col, row = np.array([col, row]) + 7 * outward / np.hypot(*outward)
         px, py = front.transform([[col + 0.5, row + 0.5]])[0]
-        ax.text(px + 3.5, py + 2.5, "ABCD"[k], color=IMAGE_COLOURS[k], fontsize=10,
-                fontweight="bold", path_effects=OUTLINE, zorder=10)
+        ax.text(px, py, "ABCD"[k], color=IMAGE_COLOURS[k], fontsize=13, ha="center",
+                va="center", fontweight="bold", path_effects=OUTLINE, zorder=10)
     cx, cy = front.transform([[nx / 2, ny / 2]])[0]
-    ax.text(cx - 9, cy + 3, "G", color=LENS_COLOUR, fontsize=10, fontweight="bold",
+    ax.text(cx, cy, "G", color=LENS_COLOUR, fontsize=13, fontweight="bold", ha="center", va="center",
             path_effects=OUTLINE, zorder=10)
     low, high = corners[2][:, 1].mean(), corners[0][:, 1].mean()
     ax.add_patch(FancyArrowPatch((right, low), (right, high),
@@ -289,6 +304,16 @@ def label_lines(ax, lines, redshift, colour, y, wavelength, text=True):
                         ha="right", va="top", transform=ax.get_xaxis_transform())
 
 
+def lens_spectrum(cube, radius=10, mask=4):
+    """Lens light in a 0.4" aperture with the quasar images masked out."""
+    ny, nx = cube.flux.shape[1:]
+    y, x = np.indices((ny, nx))
+    keep = np.hypot(y - (ny - 1) / 2, x - (nx - 1) / 2) <= radius
+    for row, col in cube.image_pixels:
+        keep &= np.hypot(y - row, x - col) > mask
+    return cube.flux[:, keep].sum(axis=1)
+
+
 def draw_spectra(fig, cube, z_s, rect):
     """Spectrum of each quasar image, normalised and offset, f_nu."""
     order = image_order(cube)
@@ -296,18 +321,24 @@ def draw_spectra(fig, cube, z_s, rect):
     ax = axes_at(fig, *rect)
     window = (wave > 10000) & (wave < 12000)
     offset = 1.1
-    for k, index in enumerate(order):
-        row, col = cube.image_pixels[index]
-        f_nu = cube.aperture(row, col) * wave ** 2
+    rows = [("ABCD"[k], IMAGE_COLOURS[k], cube.aperture(*cube.image_pixels[index]), 4, 0)
+            for k, index in enumerate(order)]
+    rows.append(("G", LENS_COLOUR, lens_spectrum(cube), 12, 6500))
+    for k, (name, colour, flux, factor, start) in enumerate(rows):
+        f_nu = flux * wave ** 2
         f_nu /= np.median(f_nu[window])
-        w, f = binned(wave, f_nu, 4)
-        shift = (len(order) - 1 - k) * offset
-        ax.plot(w / 1e4, f + shift, color=IMAGE_COLOURS[k], lw=1.1)
-        ax.text(1.72, 1 + shift, "ABCD"[k], color=IMAGE_COLOURS[k], fontsize=11,
+        w, f = binned(wave, f_nu, factor)
+        shift = (len(rows) - 1 - k) * offset
+        keep = w > start  # the lens is below the noise blueward of ~0.65 um
+        ax.plot(w[keep] / 1e4, f[keep] + shift, color=colour, lw=1.5 if name == "G" else 1.1)
+        ax.text(1.72, 1 + shift, name, color=colour, fontsize=11,
                 fontweight="bold", va="center", transform=ax.transData, clip_on=False)
+    order = rows
     ax.set_xscale("log")
     ax.set_xlim(0.42, 1.7)
     ax.set_ylim(0, 1 + (len(order) - 1) * offset + 1.6)
+    ax.text(0.43, 0.75, "lens G: red starlight,\nno broad lines", color=LENS_COLOUR,
+            fontsize=9, va="center")
     ax.set_xticks([0.5, 0.7, 1.0, 1.3, 1.7])
     ax.set_xticklabels(["0.5", "0.7", "1.0", "1.3", "1.7"])
     ax.set_xticks([], minor=True)

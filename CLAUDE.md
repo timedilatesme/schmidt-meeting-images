@@ -7,8 +7,9 @@ that resolves every quasar image and the lens galaxy.
 
 **Status:** the figure is final (`figures/lazuli_lensed_agn.{png,pdf}`) and the
 Keynote deck is built (`figures/lazuli_lensed_agn.key`, layers stacked by
-`keynote.applescript`). Build animations are added by hand in Keynote (not
-scriptable); see the Keynote plan below.
+`keynote.applescript`) with the user's hand-added click builds: footer and
+survey columns show from the start, then 8 clicks (Lazuli WCC → lens). Builds
+are not scriptable, so rebuilding the deck loses them.
 
 ## Pipeline
 

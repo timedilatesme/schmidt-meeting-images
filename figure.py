@@ -475,9 +475,9 @@ def draw_ifs(fig, data, x0=9.85):
              "0.4–1.7 µm  ·  R ≈ 100–500  ·  40 mas spaxels  ·  3 h",
              ha="center", va="bottom", fontsize=12, color=MUTED)
     target = draw_cube(fig, cube, z_s, z_d, (x0 - 0.1, 5.0, 6.1, 3.0))
-    draw_spectra(fig, cube, z_s, z_d, (x0 + 0.65, 0.72, 5.0, 3.35))
+    draw_spectra(fig, cube, z_s, z_d, (x0 + 0.65, 0.86, 5.0, 3.27))
     step("6_caption")
-    fig.text((x0 + 3.0) / WIDTH, 4.68 / HEIGHT,
+    fig.text((x0 + 3.0) / WIDTH, 4.58 / HEIGHT,
              "Same quasar lines in every image  →  lensing confirmed",
              ha="center", va="bottom", fontsize=12.5, fontweight="bold", color=INK)
     return target

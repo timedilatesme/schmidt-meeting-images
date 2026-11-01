@@ -37,8 +37,6 @@ OUTLINE = [patheffects.withStroke(linewidth=2.2, foreground="black")]
 
 TITLES = {"LSST": "Rubin LSST", "Euclid": "Euclid", "Roman": "Roman", "Lazuli": "Lazuli WCC"}
 DEPTH = {"LSST": "10-yr", "Euclid": "wide", "Roman": "HLWAS", "Lazuli": "4×300 s"}
-ROW_FOV = {1: 2.5}  # arcsec shown where a row zooms into the rendered field (compact quad)
-
 # rest-frame vacuum wavelengths [A]; [O III] 5007 is blended with Hbeta at R ~ 150
 QSO_LINES = {"Lyα": 1215.67, "C IV": 1549.06, "C III]": 1908.73, "Mg II": 2798.75,
              "Hγ": 4340.47, "Hβ": 4861.33}
@@ -191,18 +189,17 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
             half = counts.shape[0] * pixel_scale / 2
             ax.imshow(colour_composite(system["images"], observatory), origin="lower",
                       extent=(half, -half, -half, half), interpolation="antialiased")
-            view = ROW_FOV.get(row, fov)
-            ax.set_xlim(view / 2, -view / 2)
-            ax.set_ylim(-view / 2, view / 2)
+            ax.set_xlim(fov / 2, -fov / 2)
+            ax.set_ylim(-fov / 2, fov / 2)
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
                 spine.set_color(ACCENT if observatory == "Lazuli" else "0.25")
                 spine.set_linewidth(1.6 if observatory == "Lazuli" else 0.8)
             if col == 0:
-                bar = 0.44 * view  # 1" bar, same place in every row whatever the zoom
-                ax.plot([bar, bar - 1], [-0.43 * view] * 2, color="w", lw=2, path_effects=OUTLINE)
-                ax.text(bar - 0.5, -0.41 * view, "1 arcsec", color="w", ha="center", va="bottom",
+                bar = 0.44 * fov  # 1" bar, bottom left
+                ax.plot([bar, bar - 1], [-0.43 * fov] * 2, color="w", lw=2, path_effects=OUTLINE)
+                ax.text(bar - 0.5, -0.41 * fov, "1 arcsec", color="w", ha="center", va="bottom",
                         fontsize=10, path_effects=OUTLINE)
                 info = system["info"]
                 kind = "Quad" if info["n_images"] == 4 else "Double"
@@ -211,7 +208,7 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                 ax.text(-0.07, 0.5, r"$z_d$=%.2f  $z_s$=%.2f" % (info["z_d"], info["z_s"]),
                         transform=ax.transAxes, rotation=90, ha="center", va="center",
                         fontsize=10.5, color=MUTED)
-                ax.text(bar, 0.42 * view, r"$\theta_E$ = %.2f arcsec" % info["theta_E"],
+                ax.text(bar, 0.42 * fov, r"$\theta_E$ = %.2f arcsec" % info["theta_E"],
                         color="w", ha="left", va="top", fontsize=10, path_effects=OUTLINE)
             if observatory == "Lazuli" and row == 0:
                 step("3_ifs_field")
@@ -498,7 +495,8 @@ def build(path=None):
              "Lazuli: Roy et al. 2026 (arXiv:2601.02556). Modelled, not official: diffraction-limited "
              "3.06 m Airy PSF + 4 mas jitter, SDSS-shaped filters, throughput, noise, exposure times.",
              fontsize=9, color="0.55", ha="left", va="bottom")
-    fig.text((WIDTH - 0.04) / WIDTH, 0.1 / HEIGHT, "Credits: Paras Sharma (Stony Brook)",
+    fig.text((WIDTH - 0.04) / WIDTH, 0.1 / HEIGHT,
+             "Credits: Paras Sharma (Stony Brook University)",
              fontsize=9, color="0.55", ha="right", va="bottom")
     hero = draw_montage(fig, data)
     target = draw_ifs(fig, data)

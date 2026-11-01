@@ -60,13 +60,12 @@ lenstronomy is too old); lenstronomy there is an editable install of
 - Middle row is a compact quad (#81 of the compact population: θ_E = 0.23″,
   widest pair 0.47″, closest pair 0.25″, z_d = 1.16, z_s = 2.64): Rubin sees a
   point, Euclid/Roman a blended clump, Lazuli four images — the point is
-  Lazuli's resolution. That row is zoomed to 2.5″ (`ROW_FOV` in `figure.py`)
-  with its own longer "1 arcsec" bar; hero (IFS field is 4.6″ wide) and
-  double stay at 5″. Row labels give z_d, z_s; θ_E sits inside each Rubin panel
-  (top left, "θ_E = 0.84 arcsec").
+  Lazuli's resolution. Every row shows the same 5″ field (a zoomed middle row
+  was tried and dropped: it confuses the audience). Row labels give z_d, z_s;
+  θ_E sits inside each Rubin panel (top left, "θ_E = 0.84 arcsec").
 - Filter labels run blue → red, matching the response curves.
 - Footer: two short lines (SLSim + COSMOS hosts + OM10; Lazuli refs and what
-  is modelled). Bottom right: "Credits: Paras Sharma (Stony Brook)".
+  is modelled). Bottom right: "Credits: Paras Sharma (Stony Brook University)".
 - Euclid uses SLSim's Q1-style RGB (`slsim.Util.euclid_rgb_util`, VIS luminance
   + NISP Y/J/H colour, native pixel scales), arcsinh stretch, scale 200.
 - IFS slices: three plain continuum slices (0.60–0.70, 0.85–1.00,

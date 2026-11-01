@@ -88,19 +88,21 @@ def catalogue(lenses):
                "i_qso_2nd", "i_lens"])
 
 
+COMPACT_QUAD = 78  # 1.01" quad (closest pair 0.50") picked by eye: one blob in LSST
+
+
 def select(table):
     """Hero quad (the widest that fits the IFS narrow field, so the lens light
-    is well separated from the images), a second quad, and a double."""
+    is well separated from the images), a compact quad that LSST cannot
+    resolve, and a double."""
     bright = table[table["i_qso_2nd"] < 22.5]
     quads = bright[(bright["n_images"] == 4) & (bright["separation"] >= 1.2)]
     hero = quads[quads["separation"] <= 2.1]
     hero.sort("separation", reverse=True)
-    others = quads[quads["index"] != hero["index"][0]]
-    others.sort("separation", reverse=True)
     doubles = bright[(bright["n_images"] == 2) & (bright["separation"] >= 1.2)
                      & (bright["separation"] <= 3.0)]
     doubles.sort("i_qso_2nd")
-    return [int(hero["index"][0]), int(others["index"][0]), int(doubles["index"][0])]
+    return [int(hero["index"][0]), COMPACT_QUAD, int(doubles["index"][0])]
 
 
 def image(lens, observatory):

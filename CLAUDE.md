@@ -31,7 +31,9 @@ the hero system changes. They need SLSim (the user's editable install) and the
 HST COSMOS 23.5 catalog (zenodo.org/records/3242143); `render.py` picks the
 NERSC path or `/Users/paras/Projects/datasets/COSMOS/` on the Mac, whichever
 exists. On the Mac use `~/miniconda3/bin/python` (not `/opt/miniconda3`, whose
-lenstronomy is too old).
+lenstronomy is too old); lenstronomy there is an editable install of
+`/Users/paras/Projects/repos/other/lenstronomy` (pip wheels lack the Roman
+`PSF_models/*.fits` that Roman's PIXEL PSF needs).
 
 ## Files
 
@@ -44,7 +46,8 @@ lenstronomy is too old).
   fits for lens and host), `cube.py` (morphology × spectrum per component,
   λ-dependent PSF, static chromatic microlensing of the continuum only).
 - `render.py` – system selection (hero = widest quad that fits the IFS narrow
-  field), COSMOS-host swap, imaging, cube.
+  field; middle row pinned by index, `COMPACT_QUAD`), COSMOS-host swap,
+  imaging, cube.
 - `figure.py` – layout. Every artist is assigned to a Keynote build step via
   `step("...")`; `STEPS` lists the order. New elements must be drawn after the
   right `step()` call or they land in the wrong layer.
@@ -53,6 +56,12 @@ lenstronomy is too old).
 
 - Layout: 4-column montage (LSST, Euclid, Roman, Lazuli WCC) × 3 systems on the
   left; Lazuli IFS on the right. Hero (top row) quad: z_d = 0.89, z_s = 2.74.
+- Middle row is a compact quad (#78: θ_E = 0.48″, widest pair 1.01″, closest
+  pair 0.50″) so Rubin shows one blob while Euclid, Roman and Lazuli resolve
+  it — the point is Lazuli's resolution. Row labels give z_d, z_s and θ_E.
+- Filter labels run blue → red, matching the response curves.
+- Footer: two short lines (SLSim + COSMOS hosts + OM10; Lazuli refs and what
+  is modelled). Bottom right: "Credits: Paras Sharma (Stony Brook)".
 - Euclid uses SLSim's Q1-style RGB (`slsim.Util.euclid_rgb_util`, VIS luminance
   + NISP Y/J/H colour, native pixel scales), arcsinh stretch, scale 200.
 - IFS slices: three plain continuum slices (0.60–0.70, 0.85–1.00,

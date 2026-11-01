@@ -205,7 +205,8 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                 kind = "Quad" if info["n_images"] == 4 else "Double"
                 ax.text(-0.17, 0.5, kind, transform=ax.transAxes, rotation=90, ha="center",
                         va="center", fontsize=14, fontweight="bold")
-                ax.text(-0.07, 0.5, r"$z_d$=%.2f  $z_s$=%.2f" % (info["z_d"], info["z_s"]),
+                ax.text(-0.07, 0.5, r"$z_d$=%.2f  $z_s$=%.2f  $\theta_E$=%.2f″"
+                        % (info["z_d"], info["z_s"], info["theta_E"]),
                         transform=ax.transAxes, rotation=90, ha="center", va="center",
                         fontsize=10.5, color=MUTED)
             if observatory == "Lazuli" and row == 0:
@@ -493,6 +494,8 @@ def build(path=None):
              "Lazuli: Roy et al. 2026 (arXiv:2601.02556). Modelled, not official: diffraction-limited "
              "3.06 m Airy PSF + 4 mas jitter, SDSS-shaped filters, throughput, noise, exposure times.",
              fontsize=9, color="0.55", ha="left", va="bottom")
+    fig.text((WIDTH - 0.04) / WIDTH, 0.1 / HEIGHT, "Credits: Paras Sharma (Stony Brook)",
+             fontsize=9, color="0.55", ha="right", va="bottom")
     hero = draw_montage(fig, data)
     target = draw_ifs(fig, data)
     step("3_ifs_field")

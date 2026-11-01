@@ -208,10 +208,11 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
                 kind = "Quad" if info["n_images"] == 4 else "Double"
                 ax.text(-0.17, 0.5, kind, transform=ax.transAxes, rotation=90, ha="center",
                         va="center", fontsize=14, fontweight="bold")
-                ax.text(-0.07, 0.5, r"$z_d$=%.2f  $z_s$=%.2f  $\theta_E$=%.2f″"
-                        % (info["z_d"], info["z_s"], info["theta_E"]),
+                ax.text(-0.07, 0.5, r"$z_d$=%.2f  $z_s$=%.2f" % (info["z_d"], info["z_s"]),
                         transform=ax.transAxes, rotation=90, ha="center", va="center",
                         fontsize=10.5, color=MUTED)
+                ax.text(bar, 0.42 * view, r"$\theta_E$ = %.2f arcsec" % info["theta_E"],
+                        color="w", ha="left", va="top", fontsize=10, path_effects=OUTLINE)
             if observatory == "Lazuli" and row == 0:
                 step("3_ifs_field")
                 field = data["cube"].extent

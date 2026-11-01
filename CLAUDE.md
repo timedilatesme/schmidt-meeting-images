@@ -62,7 +62,8 @@ lenstronomy is too old); lenstronomy there is an editable install of
   point, Euclid/Roman a blended clump, Lazuli four images — the point is
   Lazuli's resolution. That row is zoomed to 2.5″ (`ROW_FOV` in `figure.py`)
   with its own longer "1 arcsec" bar; hero (IFS field is 4.6″ wide) and
-  double stay at 5″. Row labels give z_d, z_s and θ_E.
+  double stay at 5″. Row labels give z_d, z_s; θ_E sits inside each Rubin panel
+  (top left, "θ_E = 0.84 arcsec").
 - Filter labels run blue → red, matching the response curves.
 - Footer: two short lines (SLSim + COSMOS hosts + OM10; Lazuli refs and what
   is modelled). Bottom right: "Credits: Paras Sharma (Stony Brook)".

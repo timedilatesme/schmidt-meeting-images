@@ -37,6 +37,7 @@ OUTLINE = [patheffects.withStroke(linewidth=2.2, foreground="black")]
 
 TITLES = {"LSST": "Rubin LSST", "Euclid": "Euclid", "Roman": "Roman", "Lazuli": "Lazuli WCC"}
 DEPTH = {"LSST": "10-yr", "Euclid": "wide", "Roman": "HLWAS", "Lazuli": "4×300 s"}
+ROW_FOV = {1: 2.5}  # arcsec shown where a row zooms into the rendered field (compact quad)
 
 # rest-frame vacuum wavelengths [A]; [O III] 5007 is blended with Hbeta at R ~ 150
 QSO_LINES = {"Lyα": 1215.67, "C IV": 1549.06, "C III]": 1908.73, "Mg II": 2798.75,
@@ -190,17 +191,19 @@ def draw_montage(fig, data, x0=0.72, top=7.7, panel=2.05, gap=0.06):
             half = counts.shape[0] * pixel_scale / 2
             ax.imshow(colour_composite(system["images"], observatory), origin="lower",
                       extent=(half, -half, -half, half), interpolation="antialiased")
-            ax.set_xlim(fov / 2, -fov / 2)
-            ax.set_ylim(-fov / 2, fov / 2)
+            view = ROW_FOV.get(row, fov)
+            ax.set_xlim(view / 2, -view / 2)
+            ax.set_ylim(-view / 2, view / 2)
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
                 spine.set_color(ACCENT if observatory == "Lazuli" else "0.25")
                 spine.set_linewidth(1.6 if observatory == "Lazuli" else 0.8)
             if col == 0:
-                ax.plot([2.2, 1.2], [-2.15, -2.15], color="w", lw=2, path_effects=OUTLINE)
-                ax.text(1.7, -2.05, "1″", color="w", ha="center", va="bottom", fontsize=10,
-                        path_effects=OUTLINE)
+                bar = 0.44 * view  # 1" bar, same place in every row whatever the zoom
+                ax.plot([bar, bar - 1], [-0.43 * view] * 2, color="w", lw=2, path_effects=OUTLINE)
+                ax.text(bar - 0.5, -0.41 * view, "1 arcsec", color="w", ha="center", va="bottom",
+                        fontsize=10, path_effects=OUTLINE)
                 info = system["info"]
                 kind = "Quad" if info["n_images"] == 4 else "Double"
                 ax.text(-0.17, 0.5, kind, transform=ax.transAxes, rotation=90, ha="center",

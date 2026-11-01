@@ -5,6 +5,7 @@ cached to ``cache/population.pkl``; run this once, ``montage.py`` loads it.
 """
 
 import pickle
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +26,9 @@ import observatories
 import skypy_config
 
 CACHE = Path(__file__).parent / "cache" / "population.pkl"
+# extra draw for the compact middle-row quad: smaller separations, 4x the lens area
+COMPACT = dict(path=CACHE.with_name("population_compact.pkl"), seed=20261031,
+               separation=(0.3, 1.2), lens_area_factor=4)
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 SKY_AREA = Quantity(0.1, unit="deg2")
 LENS_AREA = SKY_AREA * 5000
@@ -38,13 +42,13 @@ def setup():
     observatories.configure_all_filters()
 
 
-def draw():
+def draw(path=CACHE, seed=20261030, separation=(0.8, 4), lens_area_factor=1):
     setup()
-    np.random.seed(20261030)
-    CACHE.parent.mkdir(exist_ok=True)
+    np.random.seed(seed)
+    path.parent.mkdir(exist_ok=True)
     extra = [(fmt(band), band) for _, _, bands, fmt in observatories.OBSERVATORIES
              for band in bands]
-    skypy_yml = str(CACHE.with_suffix(".yml"))
+    skypy_yml = str(path.with_suffix(".yml"))
     bands = skypy_config.generate(skypy_yml, extra)
 
     galaxies = pipelines.SkyPyPipeline(skypy_config=skypy_yml, sky_area=SKY_AREA,
@@ -70,19 +74,20 @@ def draw():
         catalog_type="skypy", point_source_type="quasar", extended_source_type="single_sersic",
     )
     lenses = LensPop(deflector_population=deflectors, source_population=sources,
-                     cosmo=COSMO, sky_area=LENS_AREA).draw_population(
-        kwargs_lens_cuts={"min_image_separation": 0.8, "max_image_separation": 4},
+                     cosmo=COSMO, sky_area=LENS_AREA * lens_area_factor).draw_population(
+        kwargs_lens_cuts={"min_image_separation": separation[0],
+                          "max_image_separation": separation[1]},
         speed_factor=SPEED_FACTOR,
     )
-    pickle.dump(lenses, open(CACHE, "wb"))
+    pickle.dump(lenses, open(path, "wb"))
     return lenses
 
 
-def load():
+def load(path=CACHE):
     setup()
-    return pickle.load(open(CACHE, "rb"))
+    return pickle.load(open(path, "rb"))
 
 
 if __name__ == "__main__":
-    lenses = draw()
+    lenses = draw(**COMPACT) if "--compact" in sys.argv else draw()
     print("%d lenses, %d quads" % (len(lenses), sum(l.image_number[0] == 4 for l in lenses)))

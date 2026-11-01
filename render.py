@@ -88,13 +88,14 @@ def catalogue(lenses):
                "i_qso_2nd", "i_lens"])
 
 
-COMPACT_QUAD = 78  # 1.01" quad (closest pair 0.50") picked by eye: one blob in LSST
+# middle row, picked by eye from population.COMPACT: 0.47" quad (closest pair
+# 0.25") that LSST sees as a point, Euclid/Roman blend and Lazuli resolves
+COMPACT_QUAD = 81
 
 
 def select(table):
     """Hero quad (the widest that fits the IFS narrow field, so the lens light
-    is well separated from the images), a compact quad that LSST cannot
-    resolve, and a double."""
+    is well separated from the images) and a double, from the main population."""
     bright = table[table["i_qso_2nd"] < 22.5]
     quads = bright[(bright["n_images"] == 4) & (bright["separation"] >= 1.2)]
     hero = quads[quads["separation"] <= 2.1]
@@ -102,7 +103,20 @@ def select(table):
     doubles = bright[(bright["n_images"] == 2) & (bright["separation"] >= 1.2)
                      & (bright["separation"] <= 3.0)]
     doubles.sort("i_qso_2nd")
-    return [int(hero["index"][0]), COMPACT_QUAD, int(doubles["index"][0])]
+    return int(hero["index"][0]), int(doubles["index"][0])
+
+
+def chosen():
+    """(lens, catalogue row) for the hero, the compact quad and the double."""
+    lenses = population.load()
+    table = catalogue(lenses)
+    hero, double = select(table)
+    compact = population.load(population.COMPACT["path"])
+    compact_row = catalogue([compact[COMPACT_QUAD]])[0]
+    compact_row["index"] = COMPACT_QUAD
+    return [(lenses[hero], table[table["index"] == hero][0]),
+            (compact[COMPACT_QUAD], compact_row),
+            (lenses[double], table[table["index"] == double][0])]
 
 
 def image(lens, observatory):
@@ -132,25 +146,19 @@ def cube_only():
     """Redo just the hero IFS cube, keeping the cached imaging."""
     lenses = population.load()
     data = pickle.load(open(CACHE, "rb"))
-    order = select(catalogue(lenses))
-    data["systems"].sort(key=lambda system: order.index(system["index"]))
-    hero = with_cosmos_host(lenses[order[0]])
+    hero = with_cosmos_host(lenses[select(catalogue(lenses))[0]])
     data["cube"] = ifs.simulate(hero, ifs.LazuliIFS(mode="NF", num_exposures=12),
                                 microlensing=microlensing(hero), seed=SEED)
     pickle.dump(data, open(CACHE, "wb"))
 
 
 def main():
-    lenses = population.load()
-    table = catalogue(lenses)
-    chosen = select(table)
     np.random.seed(SEED)
     systems = []
-    for index in chosen:
-        lens = with_cosmos_host(lenses[index])
-        row = table[table["index"] == index][0]
+    for lens, row in chosen():
+        lens, index = with_cosmos_host(lens), int(row["index"])
         systems.append(dict(
-            index=index, lens=lens, info={k: row[k] for k in table.colnames},
+            index=index, lens=lens, info={k: row[k] for k in row.colnames},
             images={obs: image(lens, obs) for obs in RGB},
         ))
         print("system %d: %s" % (index, dict(systems[-1]["info"])))

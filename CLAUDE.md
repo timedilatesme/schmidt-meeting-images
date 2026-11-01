@@ -15,6 +15,7 @@ are not scriptable, so rebuilding the deck loses them.
 
 ```bash
 python population.py           # SLSim lensed-AGN population incl. Lazuli bands -> cache/population.pkl (~10 min)
+python population.py --compact # extra draw, separations 0.3-1.2", 4x area -> cache/population_compact.pkl (~8 min)
 python render.py               # imaging for 4 observatories + hero IFS cube    -> cache/render.pkl (~20 min, CPU)
 python render.py --cube-only   # redo only the hero IFS cube, keep imaging      (~6 min)
 python figure.py               # figures/lazuli_lensed_agn.{png,pdf}
@@ -46,8 +47,8 @@ lenstronomy is too old); lenstronomy there is an editable install of
   fits for lens and host), `cube.py` (morphology × spectrum per component,
   λ-dependent PSF, static chromatic microlensing of the continuum only).
 - `render.py` – system selection (hero = widest quad that fits the IFS narrow
-  field; middle row pinned by index, `COMPACT_QUAD`), COSMOS-host swap,
-  imaging, cube.
+  field, and the double, from the main population; middle row = `COMPACT_QUAD`
+  from the compact population), COSMOS-host swap, imaging, cube.
 - `figure.py` – layout. Every artist is assigned to a Keynote build step via
   `step("...")`; `STEPS` lists the order. New elements must be drawn after the
   right `step()` call or they land in the wrong layer.
@@ -56,9 +57,12 @@ lenstronomy is too old); lenstronomy there is an editable install of
 
 - Layout: 4-column montage (LSST, Euclid, Roman, Lazuli WCC) × 3 systems on the
   left; Lazuli IFS on the right. Hero (top row) quad: z_d = 0.89, z_s = 2.74.
-- Middle row is a compact quad (#78: θ_E = 0.48″, widest pair 1.01″, closest
-  pair 0.50″) so Rubin shows one blob while Euclid, Roman and Lazuli resolve
-  it — the point is Lazuli's resolution. Row labels give z_d, z_s and θ_E.
+- Middle row is a compact quad (#81 of the compact population: θ_E = 0.23″,
+  widest pair 0.47″, closest pair 0.25″, z_d = 1.16, z_s = 2.64): Rubin sees a
+  point, Euclid/Roman a blended clump, Lazuli four images — the point is
+  Lazuli's resolution. That row is zoomed to 2.5″ (`ROW_FOV` in `figure.py`)
+  with its own longer "1 arcsec" bar; hero (IFS field is 4.6″ wide) and
+  double stay at 5″. Row labels give z_d, z_s and θ_E.
 - Filter labels run blue → red, matching the response curves.
 - Footer: two short lines (SLSim + COSMOS hosts + OM10; Lazuli refs and what
   is modelled). Bottom right: "Credits: Paras Sharma (Stony Brook)".
